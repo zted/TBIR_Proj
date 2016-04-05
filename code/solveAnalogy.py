@@ -2,6 +2,7 @@ import linecache as lc
 import numpy as np
 import scipy.spatial as spat
 
+
 embeddingsFile = '../data/glove.6B/glove.6B.50d.txt'
 
 
@@ -40,10 +41,9 @@ def fetch_most_similar(vect, file, ignore_word):
     return best_word
 
 wordIndices = create_indices(embeddingsFile)
-
 filename = '../data/questions-words.txt'
-
 count = 0
+
 with open(filename, 'r') as f:
     lines = f.read().splitlines()
     for l in lines:
