@@ -65,6 +65,8 @@ n_corr = 0
 n_incorr = 0
 vocabLimit = 10000
 outFile = '../results/accuracy_' + embFileName
+# embeddingsFile = '../data/GoogleNews2.txt'
+# outFile = '../results/accuracy_GoogleNews.txt'
 of = open(outFile, 'w')
 skipFlag = True
 bigMatrix = construct_matrix(embeddingsFile, vocabLimit)
@@ -101,6 +103,7 @@ with open(filename, 'r') as f:
         except KeyError as e:
             # Couldn't retrieved word in analogy question from our embeddings file
             print(e)
+            continue
         resultant = vecC + vecB - vecA
         hypothesis = fetch_most_similar(resultant, bigMatrix, embeddingsFile, c)
         # print(hypothesis)
