@@ -7,6 +7,7 @@ def cosine_similarity(u,v):
     numerator = np.dot(u,v)
     denominator = np.linalg.norm(u) * np.linalg.norm(v)
     denominator = denominator if denominator != 0 else 0
+    # ^do not divide by 0!
     return numerator/denominator
 
 
@@ -22,23 +23,30 @@ def create_indices(file):
     return d
 
 
-def get_vector(file, line):
+def get_vector(file, line, normalize=True):
     v = lc.getline(file, line)
     v = v.strip('\n').split(' ')[1:]
-    return np.array(list(map(float, v)))
+    v = np.array(list(map(float, v)))
+    if normalize:
+        return v/np.linalg.norm(v)
+    else:
+        return v
 
 
-def construct_matrix(file, limit):
+def construct_matrix(file, limit, normalize=True):
     with open(file, mode='r', encoding="ISO-8859-1") as f:
         l = []
         for n, line in enumerate(f):
             v = line.strip('\n').split(' ')
             v = np.array(list(map(float, v[1:])))
-            l.append(v/np.linalg.norm(v))
+            if normalize:
+                l.append(v/np.linalg.norm(v))
+            else:
+                l.append(v)
             if n >= limit-1:
                 return np.asmatrix(l, float)
                 # limit number of vocabulary we loop over to save time
-    return l
+    return np.asmatrix(l, float)
 
 
 def fetch_most_similar(vect, mat, file, ignore_word):
@@ -48,13 +56,44 @@ def fetch_most_similar(vect, mat, file, ignore_word):
     word = v.split(' ')[0]
     if word == ignore_word:
         resultant[0,index] = -100
+        # ^we do argmax again to get second best word, since first best is itself
         index = np.argmax(resultant)
         v = lc.getline(file, index+1)
         word = v.split(' ')[0]
     return word
 
 
-embFileName = 'glove.6B.{0}d.txt'.format(50)
+def get_three_vectors(a, b, c, file, index):
+    vecA = get_vector(file, index[a])
+    vecB = get_vector(file, index[b])
+    vecC = get_vector(file, index[c])
+    dA = np.linalg.norm(vecA)
+    dB = np.linalg.norm(vecB)
+    dC = np.linalg.norm(vecC)
+    return vecA, vecB, vecC
+
+
+def cos_sim_addition(a, b, c, matrix, file, ignore_word):
+    resultant = c+b-a
+    return fetch_most_similar(resultant, matrix, file, ignore_word)
+
+
+# def cos_sim_direction(a, b, c, matrix, file, ignore_word):
+#     resultant = a-b
+#     newMatrix = []
+#     for r in matrix:
+#         tempArray = c-np.squeeze(np.asarray(r))
+#         mag = np.linalg.norm(tempArray)
+#         tempArray = tempArray * 0 if mag == 0 else tempArray/mag
+#         newMatrix.append((tempArray)/np.linalg.norm(tempArray))
+#     print(newMatrix)
+#     return fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
+
+
+def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
+    return
+
+embFileName = 'glove.6B.{0}d.txt'.format(100)
 embeddingsFile = '../data/glove.6B/' + embFileName
 wordIndices = create_indices(embeddingsFile)
 filename = '../data/questions-words.txt'
@@ -63,7 +102,7 @@ total_corr = 0
 total_incorr = 0
 n_corr = 0
 n_incorr = 0
-vocabLimit = 10000
+vocabLimit = 30000
 outFile = '../results/accuracy_' + embFileName
 # embeddingsFile = '../data/GoogleNews2.txt'
 # outFile = '../results/accuracy_GoogleNews.txt'
@@ -104,8 +143,7 @@ with open(filename, 'r') as f:
             # Couldn't retrieved word in analogy question from our embeddings file
             print(e)
             continue
-        resultant = vecC + vecB - vecA
-        hypothesis = fetch_most_similar(resultant, bigMatrix, embeddingsFile, c)
+        hypothesis = cos_sim_addition(vecA, vecB, vecC, bigMatrix, embeddingsFile, c)
         # print(hypothesis)
         if hypothesis == answer:
             n_corr += 1
