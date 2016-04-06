@@ -1,6 +1,7 @@
 import linecache as lc
 import numpy as np
 import time
+import word2vec as w2v
 
 
 def cosine_similarity(u,v):
@@ -11,66 +12,28 @@ def cosine_similarity(u,v):
     return numerator/denominator
 
 
-def create_indices(file):
-    d = {}
-    count = 0
-    with open(file, mode='r', encoding="ISO-8859-1") as f:
-        lines = f.read().splitlines()
-        for line in lines:
-            count += 1
-            word = line.split(' ')[0]
-            d[word] = count
-    return d
-
-
-def get_vector(file, line, normalize=True):
-    v = lc.getline(file, line)
-    v = v.strip('\n').split(' ')[1:]
-    v = np.array(list(map(float, v)))
-    if normalize:
-        return v/np.linalg.norm(v)
-    else:
-        return v
-
-
-def construct_matrix(file, limit, normalize=True):
-    with open(file, mode='r', encoding="ISO-8859-1") as f:
-        l = []
-        for n, line in enumerate(f):
-            v = line.strip('\n').split(' ')
-            v = np.array(list(map(float, v[1:])))
-            if normalize:
-                l.append(v/np.linalg.norm(v))
-            else:
-                l.append(v)
-            if n >= limit-1:
-                return np.asmatrix(l, float)
-                # limit number of vocabulary we loop over to save time
+def construct_matrix(model, limit):
+    l = []
+    for n, v in enumerate(model.vectors):
+        l.append(v)
+        if n >= limit-1:
+            return np.asmatrix(l, float)
+            # limit number of vocabulary we loop over to save time
     return np.asmatrix(l, float)
 
 
 def fetch_most_similar(vect, mat, file, ignore_word):
     resultant = vect * np.transpose(mat)
     index = np.argmax(resultant)
-    v = lc.getline(file, index+1)
+    v = lc.getline(file, index+2)
     word = v.split(' ')[0]
     if word == ignore_word:
         resultant[0,index] = -100
         # ^we do argmax again to get second best word, since first best is itself
         index = np.argmax(resultant)
-        v = lc.getline(file, index+1)
+        v = lc.getline(file, index+2)
         word = v.split(' ')[0]
     return word
-
-
-def get_three_vectors(a, b, c, file, index):
-    vecA = get_vector(file, index[a])
-    vecB = get_vector(file, index[b])
-    vecC = get_vector(file, index[c])
-    dA = np.linalg.norm(vecA)
-    dB = np.linalg.norm(vecB)
-    dC = np.linalg.norm(vecC)
-    return vecA, vecB, vecC
 
 
 def cos_sim_addition(a, b, c, matrix, file, ignore_word):
@@ -93,22 +56,22 @@ def cos_sim_addition(a, b, c, matrix, file, ignore_word):
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
     return
 
-embFileName = 'glove.6B.{0}d.txt'.format(100)
+embFileName = 'glove.6B.{0}d.txt'.format(50)
 embeddingsFile = '../data/glove.6B/' + embFileName
-wordIndices = create_indices(embeddingsFile)
+model = w2v.load(embeddingsFile, 'txt')
 filename = '../data/questions-words.txt'
 count = 0
 total_corr = 0
 total_incorr = 0
 n_corr = 0
 n_incorr = 0
-vocabLimit = 30000
+vocabLimit = 10000
 outFile = '../results/accuracy_' + embFileName
 # embeddingsFile = '../data/GoogleNews2.txt'
 # outFile = '../results/accuracy_GoogleNews.txt'
 of = open(outFile, 'w')
 skipFlag = True
-bigMatrix = construct_matrix(embeddingsFile, vocabLimit)
+bigMatrix = construct_matrix(model, vocabLimit)
 
 with open(filename, 'r') as f:
     lines = f.read().splitlines()
@@ -136,9 +99,9 @@ with open(filename, 'r') as f:
         answer = words[3].lower()
         count += 1
         try:
-            vecA = get_vector(embeddingsFile, wordIndices[a])
-            vecB = get_vector(embeddingsFile, wordIndices[b])
-            vecC = get_vector(embeddingsFile, wordIndices[c])
+            vecA = model[a]
+            vecB = model[b]
+            vecC = model[c]
         except KeyError as e:
             # Couldn't retrieved word in analogy question from our embeddings file
             print(e)
