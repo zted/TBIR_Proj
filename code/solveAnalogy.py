@@ -94,14 +94,15 @@ with open(filename, 'r') as f:
         c = words[2].lower()
         answer = words[3].lower()
         count += 1
-        vecA = get_vector(embeddingsFile, wordIndices[a])
-        vecB = get_vector(embeddingsFile, wordIndices[b])
-        vecC = get_vector(embeddingsFile, wordIndices[c])
-
+        try:
+            vecA = get_vector(embeddingsFile, wordIndices[a])
+            vecB = get_vector(embeddingsFile, wordIndices[b])
+            vecC = get_vector(embeddingsFile, wordIndices[c])
+        except KeyError as e:
+            # Couldn't retrieved word in analogy question from our embeddings file
+            print(e)
         resultant = vecC + vecB - vecA
         hypothesis = fetch_most_similar(resultant, bigMatrix, embeddingsFile, c)
-
-
         # print(hypothesis)
         if hypothesis == answer:
             n_corr += 1
