@@ -2,6 +2,7 @@ import linecache as lc
 import numpy as np
 import time
 import word2vec as w2v
+t0 = time.time()
 
 
 def cosine_similarity(u,v):
@@ -56,9 +57,8 @@ def cos_sim_addition(a, b, c, matrix, file, ignore_word):
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
     return
 
-embFileName = 'glove.6B.{0}d.txt'.format(50)
+embFileName = 'glove.6B.{0}d.txt'.format(300)
 embeddingsFile = '../data/glove.6B/' + embFileName
-model = w2v.load(embeddingsFile, 'txt')
 filename = '../data/questions-words.txt'
 count = 0
 total_corr = 0
@@ -67,15 +67,15 @@ n_corr = 0
 n_incorr = 0
 vocabLimit = 10000
 outFile = '../results/accuracy_' + embFileName
-# embeddingsFile = '../data/GoogleNews2.txt'
-# outFile = '../results/accuracy_GoogleNews.txt'
+embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
+outFile = '../results/accuracy_GoogleNews.txt'
+model = w2v.load(embeddingsFile, 'bin')
 of = open(outFile, 'w')
 skipFlag = True
 bigMatrix = construct_matrix(model, vocabLimit)
 
 with open(filename, 'r') as f:
     lines = f.read().splitlines()
-    t0 = time.time()
     for l in lines:
         words = l.split(' ')
         if words[0] == ':':
