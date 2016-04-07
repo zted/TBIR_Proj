@@ -1,45 +1,24 @@
-import linecache as lc
 import numpy as np
 import time
-import word2vec as w2v
+import gensim
 t0 = time.time()
 
 
-def cosine_similarity(u,v):
-    numerator = np.dot(u,v)
-    denominator = np.linalg.norm(u) * np.linalg.norm(v)
-    denominator = denominator if denominator != 0 else 0
-    # ^do not divide by 0!
-    return numerator/denominator
-
-
-def construct_matrix(model, limit):
-    l = []
-    for n, v in enumerate(model.vectors):
-        l.append(v)
-        if n >= limit-1:
-            return np.asmatrix(l, float)
-            # limit number of vocabulary we loop over to save time
-    return np.asmatrix(l, float)
-
-
-def fetch_most_similar(vect, mat, file, ignore_word):
+def fetch_most_similar(vect, mat, model, ignore_word):
     resultant = vect * np.transpose(mat)
     index = np.argmax(resultant)
-    v = lc.getline(file, index+2)
-    word = v.split(' ')[0]
+    word = model.index2word[index]
     if word == ignore_word:
-        resultant[0,index] = -100
+        resultant[0,index] = -1000
         # ^we do argmax again to get second best word, since first best is itself
         index = np.argmax(resultant)
-        v = lc.getline(file, index+2)
-        word = v.split(' ')[0]
+        word = model.index2word[index]
     return word
 
 
-def cos_sim_addition(a, b, c, matrix, file, ignore_word):
+def cos_sim_addition(a, b, c, matrix, model, ignore_word):
     resultant = c+b-a
-    return fetch_most_similar(resultant, matrix, file, ignore_word)
+    return fetch_most_similar(resultant, matrix, model, ignore_word)
 
 
 # def cos_sim_direction(a, b, c, matrix, file, ignore_word):
@@ -57,22 +36,29 @@ def cos_sim_addition(a, b, c, matrix, file, ignore_word):
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
     return
 
-embFileName = 'glove.6B.{0}d.txt'.format(300)
-embeddingsFile = '../data/glove.6B/' + embFileName
 filename = '../data/questions-words.txt'
 count = 0
 total_corr = 0
 total_incorr = 0
 n_corr = 0
 n_incorr = 0
-vocabLimit = 10000
+vocabLimit = 30000
+
+embFileName = 'glove.6B.{0}d.txt'.format(50)
+embeddingsFile = '../data/glove.6B/' + embFileName
 outFile = '../results/accuracy_' + embFileName
-embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
-outFile = '../results/accuracy_GoogleNews.txt'
-model = w2v.load(embeddingsFile, 'bin')
+model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
+model.init_sims(replace=True) # indicates we're finished training to save ram
+
+# embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
+# outFile = '../results/accuracy_GoogleNews.txt'
+# model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=True)
+# model.init_sims(replace=True)
+
 of = open(outFile, 'w')
 skipFlag = True
-bigMatrix = construct_matrix(model, vocabLimit)
+bigMatrix = np.asmatrix(model.syn0[0:vocabLimit])
+unfound_words = set([])
 
 with open(filename, 'r') as f:
     lines = f.read().splitlines()
@@ -104,9 +90,9 @@ with open(filename, 'r') as f:
             vecC = model[c]
         except KeyError as e:
             # Couldn't retrieved word in analogy question from our embeddings file
-            print(e)
+            unfound_words.add(e)
             continue
-        hypothesis = cos_sim_addition(vecA, vecB, vecC, bigMatrix, embeddingsFile, c)
+        hypothesis = cos_sim_addition(vecA, vecB, vecC, bigMatrix, model, c)
         # print(hypothesis)
         if hypothesis == answer:
             n_corr += 1
@@ -122,5 +108,6 @@ with open(filename, 'r') as f:
                 .format(recall, n_corr, n_corr+n_incorr))
     of.write('Total recall: {0:.2f} %\n'.format(total_recall))
     t_elapsed = time.time() - t0
+    print("Unfound words: ", unfound_words)
     print("Time Taken: ", t_elapsed)
     of.close()
