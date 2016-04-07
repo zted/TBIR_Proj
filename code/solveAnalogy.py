@@ -36,7 +36,7 @@ def cos_sim_addition(a, b, c, matrix, model, ignore_word):
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
     return
 
-filename = '../data/questions-words.txt'
+questionsFile = '../data/questions-words.txt'
 count = 0
 total_corr = 0
 total_incorr = 0
@@ -44,26 +44,30 @@ n_corr = 0
 n_incorr = 0
 vocabLimit = 30000
 
-embFileName = 'glove.6B.{0}d.txt'.format(50)
-embeddingsFile = '../data/glove.6B/' + embFileName
-outFile = '../results/accuracy_' + embFileName
-model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
-model.init_sims(replace=True) # indicates we're finished training to save ram
+# embFileName = 'glove.6B.{0}d.txt'.format(50)
+# embeddingsFile = '../data/glove.6B/' + embFileName
+# outFile = '../results/accuracy_' + embFileName
+# model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
+# model.init_sims(replace=True) # indicates we're finished training to save ram
+# makeLowerCase = True
 
-# embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
-# outFile = '../results/accuracy_GoogleNews.txt'
-# model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=True)
-# model.init_sims(replace=True)
+embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
+outFile = '../results/accuracy_GoogleNews.txt'
+model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=True)
+model.init_sims(replace=True)
+makeLowerCase = False
 
 of = open(outFile, 'w')
 skipFlag = True
 bigMatrix = np.asmatrix(model.syn0[0:vocabLimit])
 unfound_words = set([])
 
-with open(filename, 'r') as f:
+with open(questionsFile, 'r') as f:
     lines = f.read().splitlines()
     for l in lines:
         words = l.split(' ')
+        if makeLowerCase:
+            words = [w.lower() for w in words]
         if words[0] == ':':
             if skipFlag == True:
                 # we don't log the first results
@@ -79,10 +83,10 @@ with open(filename, 'r') as f:
             n_incorr = 0
             of.write(' '.join(words[1:]) + ':\n')
             continue
-        a = words[0].lower()
-        b = words[1].lower()
-        c = words[2].lower()
-        answer = words[3].lower()
+        a = words[0]
+        b = words[1]
+        c = words[2]
+        answer = words[3]
         count += 1
         try:
             vecA = model[a]
