@@ -1,8 +1,9 @@
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
-import linecache as lc
+from itertools import islice
 import numpy as np
+import time
 
 
 def bufferdFetch(file):
@@ -20,11 +21,9 @@ def create_indices_for_vectors(file, skip_header=False, limit=1000000):
     :param skip_header:
     :return:
     '''
-
     myDict = {}
     count = 0
-    myFile = bufferdFetch(file)
-    for line in myFile:
+    for line in bufferdFetch(file):
         count += 1
         if count > limit:
             break
@@ -42,25 +41,28 @@ def unit_vector(v):
     return v
 
 
-def get_vector(file, line, first_separator):
-    v = lc.getline(file, line)
-    v = v.strip('\n')
-    v = v.split(first_separator, 1)[-1]
-    v = v.split(' ')
+def get_vector(file, line_number, offset=0):
+    with open(file, 'r') as f:
+        line = list(islice(f,line_number-1,line_number))[0]
+        # islice does not open the entire file, making it much more
+        # memory efficient. the +1 and +2 is because index starts at 0
+    v = line.rstrip('\n').split(' ')[1+offset:]
+    # offset needed because there may be spaces or other characters
+    # after the first word, but we only want to obtain vectors
     return np.array(list(map(float, v)))
 
-
-image_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
-                   'CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-word_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/glove.6B/glove.6B.200d.txt'
-text_training = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
-
+t0 = time.time()
 image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
 word_embeddings = '../data/glove.6B/glove.6B.200d.txt'
 text_training = '../../CLEF/Features/Textual/train_data.txt'
 
+# image_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
+#                    'CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
+# word_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/glove.6B/glove.6B.200d.txt'
+# text_training = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
+
 image_index = create_indices_for_vectors(image_embeddings,
-                                         skip_header=True, limit=2)
+                                         skip_header=True, limit=3)
 word_index = create_indices_for_vectors(word_embeddings,
                                         skip_header=True, limit=30000)
 ignore_words = stopwords.words("english")
@@ -69,15 +71,22 @@ stemmer = SnowballStemmer("english")
 minimum_words = 10
 # at least 10 words per example are needed
 
+t = time.time()
+print("T1: ", t-t0)
+
 with open(text_training, 'r') as f:
+    print("Time to open training data: ", time.time() - t)
+    t = time.time()
     stemmedWords = set([])
     addedWords = []
     for line in f:
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
-        answer_vector = get_vector(image_embeddings, answer_index, '  ')
+        answer_vector = get_vector(image_embeddings, answer_index, offset=1)
         total_words = int(len(long_string)/2)
+        print("T2: ", time.time() - t)
+        t = time.time()
         if total_words-1 <= minimum_words:
             # not enough words, don't bother using this as example
             continue
@@ -94,7 +103,7 @@ with open(text_training, 'r') as f:
             # use lemma to find word easily
             try:
                 index = word_index[lemma]
-                v = get_vector(word_embeddings, index, ' ')
+                word_vector = get_vector(word_embeddings, index, 0)
                 stemmedWords.add(stem)
                 addedWords.append(word)
                 count += 1
@@ -102,6 +111,8 @@ with open(text_training, 'r') as f:
                 print("Could not find {0} in dictionary, "
                       "try increasing your vocabulary".format(word))
                 continue
+            print("T3: ", time.time() - t)
+            t = time.time()
             if count >= minimum_words:
                 print("we've already got enough words, break!")
                 break
