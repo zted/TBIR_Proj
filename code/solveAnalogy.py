@@ -42,20 +42,20 @@ total_corr = 0
 total_incorr = 0
 n_corr = 0
 n_incorr = 0
-vocabLimit = 30000
+vocabLimit = 10000
 
-# embFileName = 'glove.6B.{0}d.txt'.format(50)
-# embeddingsFile = '../data/glove.6B/' + embFileName
-# outFile = '../results/accuracy_' + embFileName
-# model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
-# model.init_sims(replace=True) # indicates we're finished training to save ram
-# makeLowerCase = True
+embFileName = 'glove.6B.{0}d.txt'.format(50)
+embeddingsFile = '../data/glove.6B/' + embFileName
+outFile = '../results/accuracy_' + embFileName
+model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
+model.init_sims(replace=True) # indicates we're finished training to save ram
+makeLowerCase = True
 
-embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
-outFile = '../results/accuracy_GoogleNews.txt'
-model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=True)
-model.init_sims(replace=True)
-makeLowerCase = False
+# embeddingsFile = '../data/GoogleNews-vectors-negative300.bin'
+# outFile = '../results/accuracy_GoogleNews.txt'
+# model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=True)
+# model.init_sims(replace=True)
+# makeLowerCase = False
 
 of = open(outFile, 'w')
 skipFlag = True
