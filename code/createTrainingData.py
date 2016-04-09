@@ -55,7 +55,7 @@ t0 = time.time()
 word_dim = 200
 num_words = 10
 # least number of words needed for each example
-number_training_examples = 100
+number_training_examples = 200
 
 image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
 word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
@@ -71,7 +71,7 @@ image_index = create_indices_for_vectors(image_embeddings,
 word_index = create_indices_for_vectors(word_embeddings,
                                         skip_header=True)
 
-print('Time taken to create word indices: ' + str(time.time() - t0))
+print('Time taken to create word and image indices: ' + str(time.time() - t0))
 
 ignore_words = stopwords.words('english')
 lemmatizer = WordNetLemmatizer()
@@ -122,19 +122,15 @@ with open(text_training, 'r') as f:
             try:
                 index = word_index[word]
             except KeyError:
-                pass
 
-            try:
-                index = word_index[lemma]
-            except KeyError:
-                pass
+                try:
+                    index = word_index[lemma]
+                except KeyError:
 
-            try:
-                index = word_index[stem]
-            except KeyError as e:
-                # print('Could not find {0} in dictionary, '
-                #       'try increasing your vocabulary'.format(word))
-                continue
+                    try:
+                        index = word_index[stem]
+                    except KeyError as e:
+                        continue
 
             word_vector = unit_vector(get_vector(word_embeddings, index, 0))
             stemmedWords.add(stem)
@@ -152,6 +148,8 @@ with open(text_training, 'r') as f:
             fx.write(' '.join(flattenedArray) + '\n')
             fy.write(' '.join(answer_vector) + '\n')
             number_examples_processed += 1
+            if number_examples_processed % (number_training_examples/10) == 0:
+                print(str(number_examples_processed) + ' examples processed')
         else:
             continue
 
