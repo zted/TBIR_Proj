@@ -55,7 +55,7 @@ t0 = time.time()
 word_dim = 200
 num_words = 10
 # least number of words needed for each example
-number_training_examples = 200
+number_training_examples = 100
 
 image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
 word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
@@ -87,10 +87,9 @@ fy = open(output_y, 'w')
 
 
 with open(text_training, 'r') as f:
-    stemmedWords = set([])
-    addedWords = []
 
     for line in f:
+        stemmedWords = set([])
         newArray = np.empty([num_words, word_dim])
         long_string = line.split(' ')
         answer = long_string[0]
@@ -117,7 +116,7 @@ with open(text_training, 'r') as f:
                 continue
 
             if stem in stemmedWords:
-                # we've used a variant of this word already
+                # we've already used a variant of the word in this example
                 continue
 
             try:
@@ -139,10 +138,8 @@ with open(text_training, 'r') as f:
 
             word_vector = unit_vector(get_vector(word_embeddings, index, 0))
             stemmedWords.add(stem)
-            addedWords.append(word)
             newArray[count] = word_vector.tolist()
             count += 1
-            t = time.time()
 
             if count >= num_words:
                 # we've got enough words, move on to the next example!
