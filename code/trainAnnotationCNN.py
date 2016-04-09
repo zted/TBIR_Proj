@@ -52,8 +52,13 @@ def get_vector(file, line_number, offset=0):
     return np.array(list(map(float, v)))
 
 t0 = time.time()
+word_dim = 200
+num_words = 10
+# least number of words needed for each example
+number_training_examples = 2000
+
 image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-word_embeddings = '../data/glove.6B/glove.6B.200d.txt'
+word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 text_training = '../../CLEF/Features/Textual/train_data.txt'
 
 # image_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
@@ -62,61 +67,99 @@ text_training = '../../CLEF/Features/Textual/train_data.txt'
 # text_training = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
 
 image_index = create_indices_for_vectors(image_embeddings,
-                                         skip_header=True, limit=3)
+                                         skip_header=True)
 word_index = create_indices_for_vectors(word_embeddings,
-                                        skip_header=True, limit=30000)
-ignore_words = stopwords.words("english")
-lemmatizer = WordNetLemmatizer()
-stemmer = SnowballStemmer("english")
-minimum_words = 10
-# at least 10 words per example are needed
+                                        skip_header=True)
 
-t = time.time()
-print("T1: ", t-t0)
+print('Time taken to create word indices: ' + str(time.time() - t0))
+
+ignore_words = stopwords.words('english')
+lemmatizer = WordNetLemmatizer()
+stemmer = SnowballStemmer('english')
+
+number_examples_processed = 0
+output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt'\
+    .format(number_training_examples, word_dim, num_words)
+output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt'\
+    .format(number_training_examples, word_dim, num_words)
+fx = open(output_x, 'w')
+fy = open(output_y, 'w')
+
 
 with open(text_training, 'r') as f:
-    print("Time to open training data: ", time.time() - t)
-    t = time.time()
     stemmedWords = set([])
     addedWords = []
+
     for line in f:
+        newArray = np.empty([num_words, word_dim])
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
         answer_vector = get_vector(image_embeddings, answer_index, offset=1)
         total_words = int(len(long_string)/2)
-        print("T2: ", time.time() - t)
-        t = time.time()
-        if total_words-1 <= minimum_words:
+
+        if total_words-1 <= num_words:
             # not enough words, don't bother using this as example
             continue
         count = 0
+
         for i in range(1, total_words):
             word = long_string[2*i].split("'")[0]
             # remove apostrophes
             score = long_string[2*i+1]
-            stem = stemmer.stem(word)
+
+            try:
+                stem = stemmer.stem(word)
+                lemma = lemmatizer.lemmatize(word)
+                # use lemma to find word easily
+            except UnicodeDecodeError as e:
+                # print('Could not stem or lemmatize ' + word)
+                continue
+
             if stem in stemmedWords:
                 # we've used a variant of this word already
                 continue
-            lemma = lemmatizer.lemmatize(word)
-            # use lemma to find word easily
+
+            try:
+                index = word_index[word]
+            except KeyError:
+                pass
+
             try:
                 index = word_index[lemma]
-                word_vector = get_vector(word_embeddings, index, 0)
-                stemmedWords.add(stem)
-                addedWords.append(word)
-                count += 1
+            except KeyError:
+                pass
+
+            try:
+                index = word_index[stem]
             except KeyError as e:
-                print("Could not find {0} in dictionary, "
-                      "try increasing your vocabulary".format(word))
+                # print('Could not find {0} in dictionary, '
+                #       'try increasing your vocabulary'.format(word))
                 continue
-            print("T3: ", time.time() - t)
+
+            word_vector = unit_vector(get_vector(word_embeddings, index, 0))
+            stemmedWords.add(stem)
+            addedWords.append(word)
+            newArray[count] = word_vector.tolist()
+            count += 1
             t = time.time()
-            if count >= minimum_words:
-                print("we've already got enough words, break!")
+
+            if count >= num_words:
+                # we've got enough words, move on to the next example!
                 break
+
+        if count >= num_words:
+            flattenedArray = newArray.flatten()
+            flattenedArray = [str(i) for i in flattenedArray.tolist()]
+            answer_vector = [str(i) for i in answer_vector.tolist()]
+            fx.write(' '.join(flattenedArray) + '\n')
+            fy.write(' '.join(answer_vector) + '\n')
+            number_examples_processed += 1
+        else:
+            continue
+
+        if number_examples_processed >= number_training_examples:
             break
-        if count >= minimum_words:
-            print("we can use this as a training example")
-        break
+
+fx.close()
+fy.close()
