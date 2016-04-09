@@ -55,7 +55,7 @@ t0 = time.time()
 word_dim = 200
 num_words = 10
 # least number of words needed for each example
-number_training_examples = 2000
+number_training_examples = 200
 
 image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
 word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
