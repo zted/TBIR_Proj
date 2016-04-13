@@ -4,6 +4,12 @@ import gensim
 t0 = time.time()
 
 
+def unit_vec(v):
+    mag = np.linalg.norm(v)
+    tempArray = v * 0 if mag == 0 else v/mag
+    return tempArray
+
+
 def fetch_most_similar(vect, mat, model, ignore_word):
     resultant = vect * np.transpose(mat)
     index = np.argmax(resultant)
@@ -21,16 +27,13 @@ def cos_sim_addition(a, b, c, matrix, model, ignore_word):
     return fetch_most_similar(resultant, matrix, model, ignore_word)
 
 
-# def cos_sim_direction(a, b, c, matrix, file, ignore_word):
-#     resultant = a-b
-#     newMatrix = []
-#     for r in matrix:
-#         tempArray = c-np.squeeze(np.asarray(r))
-#         mag = np.linalg.norm(tempArray)
-#         tempArray = tempArray * 0 if mag == 0 else tempArray/mag
-#         newMatrix.append((tempArray)/np.linalg.norm(tempArray))
-#     print(newMatrix)
-#     return fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
+def cos_sim_direction(a, b, c, matrix, file, ignore_word):
+    resultant = a-b
+    newMatrix = []
+    for r in matrix:
+        tempArray = c-np.squeeze(np.asarray(r))
+        newMatrix.append(unit_vec(tempArray))
+    return fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
 
 
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
