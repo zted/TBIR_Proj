@@ -42,8 +42,7 @@ def train_conv_net(datasets,
                    lr_decay = 0.95,
                    conv_non_linear="relu",
                    activations=[Iden],
-                   sqr_norm_lim=9,
-                   non_static=False):
+                   sqr_norm_lim=9):
     """
     Train a simple conv net
     img_h = sentence length (padded where necessary)
@@ -53,8 +52,10 @@ def train_conv_net(datasets,
     sqr_norm_lim = s^2 in the paper
     lr_decay = adadelta decay parameter
     """
+    x_train, y_train, x_val, y_val, x_test, y_test = datasets
+
     rng = np.random.RandomState(3435)
-    img_h = len(datasets[0][0])
+    img_h = len(x_train[0])
     filter_w = img_w
     feature_maps = hidden_units[0]
     filter_shapes = []
@@ -67,7 +68,7 @@ def train_conv_net(datasets,
     index = T.lscalar()
     x = T.ftensor3('x')
     y = T.fmatrix('y')
-    layer0_input = x.reshape((x.shape[0],1,x.shape[1],img_w))
+    layer0_input = x.reshape((x.shape[0], 1, x.shape[1], img_w))
 
     conv_layers = []
     layer1_inputs = []
@@ -87,56 +88,36 @@ def train_conv_net(datasets,
     params = classifier.params
     for conv_layer in conv_layers:
         params += conv_layer.params
-    cost = classifier.negative_log_likelihood(y)
-    dropout_cost = classifier.dropout_negative_log_likelihood(y)
+    cost = classifier.errors(y)
+    dropout_cost = classifier.dropout_errors(y)
     grad_updates = sgd_updates_adadelta(params, dropout_cost, lr_decay, 1e-6, sqr_norm_lim)
 
-    #shuffle dataset and assign to mini batches. if dataset size is not a multiple of mini batches, replicate
-    #extra data (at random)
-    np.random.seed(3435)
-    if datasets[0].shape[0] % batch_size > 0:
-        extra_data_num = batch_size - datasets[0].shape[0] % batch_size
-        train_set = np.random.permutation(datasets[0])
-        extra_data = train_set[:extra_data_num]
-        new_data_x=np.append(datasets[0],extra_data,axis=0)
-    else:
-        new_data_x = datasets[0]
-        new_data_y = datasets[1]
-    randPermute = np.random.permutation(len(new_data_x))
-    new_data_x = np.array([new_data_x[i] for i in randPermute])
-    new_data_y = np.array([new_data_y[i] for i in randPermute])
-    n_batches = new_data_x.shape[0]/batch_size
-    # print("batch size is", n_batches)
+    n_batches = x_train.shape[0]/batch_size
     n_train_batches = int(np.round(n_batches*0.9))
-    #divide train set into train/val sets
-    test_set_x = new_data_x[:200]
-    test_set_y = new_data_y[:200]
-    train_set_x = new_data_x[:n_train_batches*batch_size]
-    train_set_y = new_data_y[:n_train_batches*batch_size]
-    train_set_x, train_set_y = shared_dataset((train_set_x,train_set_y))
-    val_set_x = new_data_x[n_train_batches*batch_size:]
-    val_set_y = new_data_y[n_train_batches*batch_size:]
-    val_set_x, val_set_y = shared_dataset((val_set_x,val_set_y))
     n_val_batches = n_batches - n_train_batches
+    #divide train set into train/val sets
+
+    x_train, y_train = shared_dataset((x_train,y_train))
+    x_val, y_val = shared_dataset((x_val,y_val))
     val_model = theano.function([index], classifier.errors(y),
          givens={
-            x: val_set_x[index * batch_size: (index + 1) * batch_size],
-             y: val_set_y[index * batch_size: (index + 1) * batch_size]},
+            x: x_val[index * batch_size: (index + 1) * batch_size],
+             y: y_val[index * batch_size: (index + 1) * batch_size]},
                                 allow_input_downcast=True, on_unused_input='warn')
     # compile theano functions to get train/val/test errors
     test_model = theano.function([index], classifier.errors(y),
              givens={
-                x: train_set_x[index * batch_size: (index + 1) * batch_size],
-                 y: train_set_y[index * batch_size: (index + 1) * batch_size]},
+                x: x_train[index * batch_size: (index + 1) * batch_size],
+                 y: y_train[index * batch_size: (index + 1) * batch_size]},
                                  allow_input_downcast=True, on_unused_input='warn')
     train_model = theano.function([index], cost, updates=grad_updates,
           givens={
-            x: train_set_x[index*batch_size:(index+1)*batch_size],
-              y: train_set_y[index*batch_size:(index+1)*batch_size]},
+            x: x_train[index*batch_size:(index+1)*batch_size],
+              y: y_train[index*batch_size:(index+1)*batch_size]},
                                   allow_input_downcast = True, on_unused_input='warn')
 
     test_pred_layers = []
-    test_size = test_set_x.shape[0]
+    test_size = x_test.shape[0]
     test_layer0_input = x.reshape((test_size,1,img_h,img_w))
     for conv_layer in conv_layers:
         test_layer0_output = conv_layer.predict(test_layer0_input, test_size)
@@ -145,6 +126,7 @@ def train_conv_net(datasets,
     test_y_pred = classifier.predict(test_layer1_input)
     test_error = T.sum(abs(test_y_pred - y))
     test_model_all = theano.function([x,y], test_error, allow_input_downcast = True)
+    show_prediction = theano.function([x], test_y_pred, allow_input_downcast = True)
 
     #start training over mini-batches
     print '... training'
@@ -166,10 +148,12 @@ def train_conv_net(datasets,
         train_perf = np.mean(train_losses)
         val_losses = [val_model(i) for i in xrange(n_val_batches)]
         val_perf = np.mean(val_losses)
+        # print(show_prediction(x_test))
+        # print(np.asarray(show_prediction).shape)
         print('epoch: %i, training time: %.2f secs, train errors: %.2f, val errors: %.2f' % (epoch, time.time()-start_time, train_perf, val_perf))
         if val_perf >= best_val_perf:
             best_val_perf = val_perf
-            test_loss = test_model_all(test_set_x,test_set_y)
+            test_loss = test_model_all(x_test,y_test)
             test_perf = 1- test_loss
     return test_perf
 
@@ -246,31 +230,57 @@ def safe_update(dict_to, dict_from):
     return dict_to
 
 
-def load_my_data(training, gt):
+def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
 
-    def load_labels(filename, n, dim):
+    def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
-        return data.reshape(n,dim)
+        return data.reshape(n_examples, dim)
 
-    def load_vectors(filename, words, dim):
+    def load_vectors(filename, n_examples, n_words, dim):
         data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
-        return data.reshape(1, 2000, words, dim)
+        return data.reshape(1, n_examples, n_words, dim)
 
-    x_all = load_vectors(training, words=10, dim=200)[0]
-    y_all = load_labels(gt, n=2000, dim=4096)
+    x_all = load_vectors(xfile, n, w, d)[0]
+    y_all = load_labels(yfile, n_examples=2000, dim=4096)
 
-    return [x_all, y_all]
+    np.random.seed(3453)
+    randPermute = np.random.permutation(n)
+    x_all = np.array([x_all[i] for i in randPermute])
+    y_all = np.array([y_all[i] for i in randPermute])
+    n_val = int(valPercent * n)
+    n_test = int(testPercent * n)
+    n_train = n - (n_val + n_test)
+
+    if n_train < 0:
+        raise ValueError('Invalid percentages of validation and test data')
+    x_train = x_all[:n_train]
+    x_val = x_all[n_train:n_train+n_val]
+    x_test = x_all[-n_test:]
+
+    y_train = y_all[:n_train]
+    y_val = y_all[n_train:n_train+n_val]
+    y_test = y_all[-n_test:]
+
+    return [x_train, y_train, x_val, y_val, x_test, y_test]
+
 
 if __name__=="__main__":
 
-    training_file = '../data/200n_200dim_10w_training_x.txt'
-    truths_file = '../data/200n_200dim_10w_training_gt.txt'
+    num_examples = 2000
+    dim = 200
+    num_words = 20
 
-    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/2000n_200dim_10w_training_x.txt'
-    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/2000n_200dim_10w_training_gt.txt'
+    training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
+    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
+
+    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
+                    'proj/data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
+    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj' \
+                  '/data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
-    datasets = load_my_data(training_file, truths_file)
+    datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
+                            w=num_words, valPercent=0.3, testPercent=0.2)
     print "data loaded!"
 
     results = []
@@ -284,7 +294,6 @@ if __name__=="__main__":
                               shuffle_batch=True,
                               n_epochs=5,
                               sqr_norm_lim=9,
-                              non_static=True,
                               batch_size=100,
                               dropout_rate=[0.5])
         print "cv: " + str(i) + ", perf: " + str(perf)

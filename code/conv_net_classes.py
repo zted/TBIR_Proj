@@ -167,7 +167,7 @@ class LeNetConvPoolLayer(object):
         return output
 
 
-class LogisticRegression2(object):
+class LogisticRegression(object):
     """Multi-class Logistic Regression Class
 
     The logistic regression is fully described by a weight matrix :math:`W`
@@ -219,24 +219,6 @@ class LogisticRegression2(object):
         # parameters of the model
         self.params = [self.W, self.b]
 
-    def negative_log_likelihood(self, y):
-        """Return the mean of the negative log-likelihood of the prediction
-        of this model under a given target distribution.
-
-    .. math::
-
-    \frac{1}{|\mathcal{D}|} \mathcal{L} (\theta=\{W,b\}, \mathcal{D}) =
-    \frac{1}{|\mathcal{D}|} \sum_{i=0}^{|\mathcal{D}|} \log(P(Y=y^{(i)}|x^{(i)}, W,b)) \\
-    \ell (\theta=\{W,b\}, \mathcal{D})
-
-    :type y: theano.tensor.TensorType
-    :param y: corresponds to a vector that gives for each example the
-    correct label
-
-    Note: we use the mean instead of the sum so that
-    the learning rate is less dependent on the batch size
-    """
-        return T.sum(abs(self.y_pred - y))
 
     def errors(self, y):
         """Return a float representing the number of errors in the minibatch ;
@@ -252,7 +234,7 @@ class LogisticRegression2(object):
                 ('y', y.type, 'y_pred', self.y_pred.type))
         # check if y is of the correct datatype
         if y.dtype.startswith('float'):
-            return T.sum(abs(self.y_pred-y))
+            return T.sum(abs(self.y_pred-y))/y.shape[0] #returns the average error per training example
         else:
             raise NotImplementedError()
 
@@ -298,13 +280,13 @@ class Dropout(object):
 
         # Set up the output layer
         n_in, n_out = self.weight_matrix_sizes[-1]
-        dropout_output_layer = LogisticRegression2(
+        dropout_output_layer = LogisticRegression(
                 input=next_dropout_layer_input,
                 n_in=n_in, n_out=n_out)
         self.dropout_layers.append(dropout_output_layer)
 
         # Again, reuse paramters in the dropout output.
-        output_layer = LogisticRegression2(
+        output_layer = LogisticRegression(
             input=next_layer_input,
             # scale the weight matrix W with (1-p)
             W=dropout_output_layer.W * (1 - dropout_rates[-1]),
@@ -314,10 +296,8 @@ class Dropout(object):
 
         # Use the negative log likelihood of the logistic regression layer as
         # the objective.
-        self.dropout_negative_log_likelihood = self.dropout_layers[-1].negative_log_likelihood
         self.dropout_errors = self.dropout_layers[-1].errors
 
-        self.negative_log_likelihood = self.layers[-1].negative_log_likelihood
         self.errors = self.layers[-1].errors
 
         # Grab all the parameters together.
