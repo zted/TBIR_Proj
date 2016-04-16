@@ -10,10 +10,7 @@ Much of the code is modified from
 """
 
 import numpy as np
-from collections import OrderedDict
-import theano.tensor as T
 import warnings
-import time
 from conv_net_classes import *
 import lasagne
 warnings.filterwarnings("ignore")
@@ -35,67 +32,56 @@ def Iden(x):
 def train_conv_net(datasets,
                    hidden_units,
                    img_w=200,
-                   filter_hs=[3,4,5],
-                   dropout_rate=[0.5],
-                   shuffle_batch=True,
+                   filter_hs=[3,3,3],
+                   dropout_rate=0.5,
                    n_epochs=25,
-                   batch_size=50,
-                   lr_decay = 0.95,
-                   conv_non_linear="relu",
-                   activations=[Iden],
-                   sqr_norm_lim=9):
+                   batch_size=50):
 
     x_train, y_train, x_val, y_val, x_test, y_test = datasets
 
-    rng = np.random.RandomState(3435)
-    img_h = len(x_train[0])
+    img_h = len(x_train[0][0])
     filter_w = img_w
     feature_maps = hidden_units[0]
     filter_shapes = []
     pool_sizes = []
     for filter_h in filter_hs:
-        filter_shapes.append((feature_maps, 1, filter_h, filter_w))
-        pool_sizes.append((img_h-filter_h+1, img_w-filter_w+1))
-
-    #define model architecture
-    index = T.lscalar()
-    x = T.ftensor3('x')
-    y = T.fmatrix('y')
-    layer0_input = x.reshape((x.shape[0], 1, x.shape[1], img_w))
-
+        filter_shapes.append((2, 20))
+        pool_sizes.append((img_h-filter_h+1, img_w/10))
+        #TODO: fix these filter shapes and pool sizes
 
     input_shape = x_train[0].shape
     l_in = lasagne.layers.InputLayer(
         shape=(None, input_shape[0], input_shape[1], input_shape[2]))
-    l_conv1 = lasagne.layers.Conv2DLayer(l_in,num_filters=32, filter_size=filter_shapes[0],
+
+
+    l_conv1 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[0],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=pool_sizes[0])
+    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=(2,2))
 
 
-    l_conv2 = lasagne.layers.Conv2DLayer(l_pool1, num_filters=32, filter_size=filter_shapes[1],
+    l_conv2 = lasagne.layers.Conv2DLayer(l_pool1, num_filters=32, filter_size=filter_shapes[0],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=pool_sizes[2])
+    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=(2,2))
 
 
-    l_conv3 = lasagne.layers.Conv2DLayer(l_pool2, num_filters=32, filter_size=filter_shapes[2],
+    l_conv3 = lasagne.layers.Conv2DLayer(l_pool2, num_filters=32, filter_size=filter_shapes[0],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=pool_sizes[3])
+    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=(2,2))
 
-    l_hidden1 = lasagne.layers.DenseLayer(l_pool3, num_units=4096,
+
+    l_hidden1 = lasagne.layers.DenseLayer(l_pool3, num_units=hidden_units[0],
                                           nonlinearity=lasagne.nonlinearities.rectify,
                                           W=lasagne.init.HeNormal(gain='relu'))
-    l_hidden1_dropout = lasagne.layers.DropoutLayer(l_hidden1, p=0.5)
-    l_output = lasagne.layers.DenseLayer(l_hidden1_dropout, num_units=4096)
+    l_hidden1_dropout = lasagne.layers.DropoutLayer(l_hidden1, p=dropout_rate)
+    l_output = lasagne.layers.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1])
     net_output = lasagne.layers.get_output(l_output)
 
-    true_output = T.ivector('true_output')
-    loss = T.mean(lasagne.objectives.categorical_crossentropy(net_output, true_output))
+    true_output = T.matrix('true_output', dtype='float32')
 
-    loss_train = T.mean(lasagne.objectives.categorical_accuracy(
-        lasagne.layers.get_output(l_output, deterministic=False), true_output))
+    loss_train = T.mean(lasagne.objectives.squared_error(net_output, true_output))
     all_params = lasagne.layers.get_all_params(l_output)
     # Use ADADELTA for updates
     updates = lasagne.updates.adadelta(loss_train, all_params)
@@ -107,18 +93,15 @@ def train_conv_net(datasets,
     get_output = theano.function([l_in.input_var],
                              lasagne.layers.get_output(l_output, deterministic=True))
 
-
-    BATCH_SIZE = 100
-    N_EPOCHS = 10
     # Keep track of which batch we're training with
     batch_idx = 0
-    # Keep track of which epoch we're on
+    # Keep track of which epoch we're onshape
     epoch = 0
-    while epoch < N_EPOCHS:
+    while epoch < n_epochs:
         # Extract the training data/label batch and update the parameters with it
-        train(x_train[batch_idx:batch_idx + BATCH_SIZE],
-              y_train[batch_idx:batch_idx + BATCH_SIZE])
-        batch_idx += BATCH_SIZE
+        train(x_train[batch_idx:batch_idx + batch_size],
+              y_train[batch_idx:batch_idx + batch_size])
+        batch_idx += batch_size
         # Once we've trained on the entire training set...
         if batch_idx >= x_train.shape[0]:
             # Reset the batch index
@@ -127,98 +110,11 @@ def train_conv_net(datasets,
             epoch += 1
             # Compute the network's output on the validation data
             val_output = get_output(x_val)
-            # The predicted class is just the index of the largest probability in the output
-            val_predictions = np.argmax(val_output, axis=1)
             # The accuracy is the average number of correct predictions
-            accuracy = np.mean(val_predictions == y_val)
-            print("Epoch {} validation accuracy: {}".format(epoch, accuracy))
+            error = np.sum(abs(val_output - y_val))/val_output.shape[0]
+            print("Epoch {} validation errors: {}".format(epoch, error))
 
-    conv_layers = []
-    layer1_inputs = []
-    for i in xrange(len(filter_hs)):
-        filter_shape = filter_shapes[i]
-        pool_size = pool_sizes[i]
-        conv_layer = LeNetConvPoolLayer(rng, input=layer0_input,image_shape=(batch_size, 1, img_h, img_w),
-                                filter_shape=filter_shape, poolsize=pool_size, non_linear=conv_non_linear)
-        layer1_input = conv_layer.output.flatten(2)
-        conv_layers.append(conv_layer)
-        layer1_inputs.append(layer1_input)
-    layer1_input = T.concatenate(layer1_inputs, axis=1)
-    hidden_units[0] = feature_maps*len(filter_hs)
-    classifier = Dropout(rng, input=layer1_input, layer_sizes=hidden_units, activations=activations, dropout_rates=dropout_rate)
-
-    #define parameters of the model and update functions using adadelta
-    params = classifier.params
-    for conv_layer in conv_layers:
-        params += conv_layer.params
-    cost = classifier.errors(y)
-    dropout_cost = classifier.dropout_errors(y)
-    grad_updates = sgd_updates_adadelta(params, dropout_cost, lr_decay, 1e-6, sqr_norm_lim)
-
-    n_batches = x_train.shape[0]/batch_size
-    n_train_batches = int(np.round(n_batches*0.9))
-    n_val_batches = n_batches - n_train_batches
-    #divide train set into train/val sets
-
-    x_train, y_train = shared_dataset((x_train,y_train))
-    x_val, y_val = shared_dataset((x_val,y_val))
-    val_model = theano.function([index], classifier.errors(y),
-         givens={
-            x: x_val[index * batch_size: (index + 1) * batch_size],
-             y: y_val[index * batch_size: (index + 1) * batch_size]},
-                                allow_input_downcast=True, on_unused_input='warn')
-    # compile theano functions to get train/val/test errors
-    test_model = theano.function([index], classifier.errors(y),
-             givens={
-                x: x_train[index * batch_size: (index + 1) * batch_size],
-                 y: y_train[index * batch_size: (index + 1) * batch_size]},
-                                 allow_input_downcast=True, on_unused_input='warn')
-    train_model = theano.function([index], cost, updates=grad_updates,
-          givens={
-            x: x_train[index*batch_size:(index+1)*batch_size],
-              y: y_train[index*batch_size:(index+1)*batch_size]},
-                                  allow_input_downcast = True, on_unused_input='warn')
-
-    test_pred_layers = []
-    test_size = x_test.shape[0]
-    test_layer0_input = x.reshape((test_size,1,img_h,img_w))
-    for conv_layer in conv_layers:
-        test_layer0_output = conv_layer.predict(test_layer0_input, test_size)
-        test_pred_layers.append(test_layer0_output.flatten(2))
-    test_layer1_input = T.concatenate(test_pred_layers, 1)
-    test_y_pred = classifier.predict(test_layer1_input)
-    test_error = T.sum(abs(test_y_pred - y))
-    test_model_all = theano.function([x,y], test_error, allow_input_downcast = True)
-    show_prediction = theano.function([x], test_y_pred, allow_input_downcast = True)
-
-    #start training over mini-batches
-    print '... training'
-    epoch = 0
-    best_val_perf = 0
-    val_perf = 0
-    test_perf = 0
-    cost_epoch = 0
-    while (epoch < n_epochs):
-        start_time = time.time()
-        epoch = epoch + 1
-        if shuffle_batch:
-            for minibatch_index in np.random.permutation(range(n_train_batches)):
-                cost_epoch = train_model(minibatch_index)
-        else:
-            for minibatch_index in xrange(n_train_batches):
-                cost_epoch = train_model(minibatch_index)
-        train_losses = [test_model(i) for i in xrange(n_train_batches)]
-        train_perf = np.mean(train_losses)
-        val_losses = [val_model(i) for i in xrange(n_val_batches)]
-        val_perf = np.mean(val_losses)
-        # print(show_prediction(x_test))
-        # print(np.asarray(show_prediction).shape)
-        print('epoch: %i, training time: %.2f secs, train errors: %.2f, val errors: %.2f' % (epoch, time.time()-start_time, train_perf, val_perf))
-        if val_perf >= best_val_perf:
-            best_val_perf = val_perf
-            test_loss = test_model_all(x_test,y_test)
-            test_perf = 1- test_loss
-    return test_perf
+    return error
 
 
 def shared_dataset(data_xy, borrow=True):
@@ -240,71 +136,18 @@ def shared_dataset(data_xy, borrow=True):
         return shared_x, shared_y
 
 
-def sgd_updates_adadelta(params,cost,rho=0.95,epsilon=1e-6,norm_lim=9):
-    """
-    adadelta update rule, mostly from
-    https://groups.google.com/forum/#!topic/pylearn-dev/3QbKtCumAW4 (for Adadelta)
-    """
-    updates = OrderedDict({})
-    exp_sqr_grads = OrderedDict({})
-    exp_sqr_ups = OrderedDict({})
-    gparams = []
-    for param in params:
-        empty = np.zeros_like(param.get_value())
-        exp_sqr_grads[param] = theano.shared(value=as_floatX(empty),name="exp_grad_%s" % param.name)
-        gp = T.grad(cost, param)
-        exp_sqr_ups[param] = theano.shared(value=as_floatX(empty), name="exp_grad_%s" % param.name)
-        gparams.append(gp)
-    for param, gp in zip(params, gparams):
-        exp_sg = exp_sqr_grads[param]
-        exp_su = exp_sqr_ups[param]
-        up_exp_sg = rho * exp_sg + (1 - rho) * T.sqr(gp)
-        updates[exp_sg] = up_exp_sg
-        step =  -(T.sqrt(exp_su + epsilon) / T.sqrt(up_exp_sg + epsilon)) * gp
-        updates[exp_su] = rho * exp_su + (1 - rho) * T.sqr(step)
-        stepped_param = param + step
-        if (param.get_value(borrow=True).ndim == 2) and (param.name!='Words'):
-            col_norms = T.sqrt(T.sum(T.sqr(stepped_param), axis=0))
-            desired_norms = T.clip(col_norms, 0, T.sqrt(norm_lim))
-            scale = desired_norms / (1e-7 + col_norms)
-            updates[param] = stepped_param * scale
-        else:
-            updates[param] = stepped_param
-    return updates
-
-
-def as_floatX(variable):
-    if isinstance(variable, float):
-        return np.cast[theano.config.floatX](variable)
-
-    if isinstance(variable, np.ndarray):
-        return np.cast[theano.config.floatX](variable)
-    return theano.tensor.cast(variable, theano.config.floatX)
-
-
-def safe_update(dict_to, dict_from):
-    """
-    re-make update dictionary for safe updating
-    """
-    for key, val in dict(dict_from).iteritems():
-        if key in dict_to:
-            raise KeyError(key)
-        dict_to[key] = val
-    return dict_to
-
-
 def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
 
     def load_labels(filename, n_examples, dim):
-        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
+        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
 
     def load_vectors(filename, n_examples, n_words, dim):
-        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
-        return data.reshape(1, n_examples, n_words, dim)
+        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
+        return data.reshape(n_examples, 1, n_words, dim)
 
-    x_all = load_vectors(xfile, n, w, d)[0]
-    y_all = load_labels(yfile, n_examples=2000, dim=4096)
+    x_all = load_vectors(xfile, n, w, d)
+    y_all = load_labels(yfile, n, dim=4096)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -350,15 +193,12 @@ if __name__=="__main__":
     r = range(0,10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[4096,4096],
-                              lr_decay=0.95,
+                              hidden_units=[200,4096],
+                              img_w = dim,
                               filter_hs=[3,4,5],
-                              conv_non_linear="relu",
-                              shuffle_batch=True,
-                              n_epochs=5,
-                              sqr_norm_lim=9,
+                              n_epochs=10,
                               batch_size=100,
-                              dropout_rate=[0.5])
+                              dropout_rate=0.5)
         print "cv: " + str(i) + ", perf: " + str(perf)
         results.append(perf)
     print str(np.mean(results))
