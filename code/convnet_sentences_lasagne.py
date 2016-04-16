@@ -15,6 +15,7 @@ import theano.tensor as T
 import warnings
 import time
 from conv_net_classes import *
+import lasagne
 warnings.filterwarnings("ignore")
 
 #different non-linearities
@@ -34,7 +35,7 @@ def Iden(x):
 def train_conv_net(datasets,
                    hidden_units,
                    img_w=200,
-                   filter_hs=[2,3,4,5],
+                   filter_hs=[3,4,5],
                    dropout_rate=[0.5],
                    shuffle_batch=True,
                    n_epochs=25,
@@ -43,15 +44,7 @@ def train_conv_net(datasets,
                    conv_non_linear="relu",
                    activations=[Iden],
                    sqr_norm_lim=9):
-    """
-    Train a simple conv net
-    img_h = sentence length (padded where necessary)
-    img_w = word vector length (300 for word2vec)
-    filter_hs = filter window sizes
-    hidden_units = [x,y] x is the number of feature maps (per filter window), and y is the penultimate layer
-    sqr_norm_lim = s^2 in the paper
-    lr_decay = adadelta decay parameter
-    """
+
     x_train, y_train, x_val, y_val, x_test, y_test = datasets
 
     rng = np.random.RandomState(3435)
@@ -66,9 +59,79 @@ def train_conv_net(datasets,
 
     #define model architecture
     index = T.lscalar()
-    x = T.tensor3('x', dtype='float32')
-    y = T.matrix('y', dtype='float32')
+    x = T.ftensor3('x')
+    y = T.fmatrix('y')
     layer0_input = x.reshape((x.shape[0], 1, x.shape[1], img_w))
+
+
+    input_shape = x_train[0].shape
+    l_in = lasagne.layers.InputLayer(
+        shape=(None, input_shape[0], input_shape[1], input_shape[2]))
+    l_conv1 = lasagne.layers.Conv2DLayer(l_in,num_filters=32, filter_size=filter_shapes[0],
+                                         nonlinearity=lasagne.nonlinearities.rectify,
+                                         W=lasagne.init.HeNormal(gain='relu'))
+    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=pool_sizes[0])
+
+
+    l_conv2 = lasagne.layers.Conv2DLayer(l_pool1, num_filters=32, filter_size=filter_shapes[1],
+                                         nonlinearity=lasagne.nonlinearities.rectify,
+                                         W=lasagne.init.HeNormal(gain='relu'))
+    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=pool_sizes[2])
+
+
+    l_conv3 = lasagne.layers.Conv2DLayer(l_pool2, num_filters=32, filter_size=filter_shapes[2],
+                                         nonlinearity=lasagne.nonlinearities.rectify,
+                                         W=lasagne.init.HeNormal(gain='relu'))
+    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=pool_sizes[3])
+
+    l_hidden1 = lasagne.layers.DenseLayer(l_pool3, num_units=4096,
+                                          nonlinearity=lasagne.nonlinearities.rectify,
+                                          W=lasagne.init.HeNormal(gain='relu'))
+    l_hidden1_dropout = lasagne.layers.DropoutLayer(l_hidden1, p=0.5)
+    l_output = lasagne.layers.DenseLayer(l_hidden1_dropout, num_units=4096)
+    net_output = lasagne.layers.get_output(l_output)
+
+    true_output = T.ivector('true_output')
+    loss = T.mean(lasagne.objectives.categorical_crossentropy(net_output, true_output))
+
+    loss_train = T.mean(lasagne.objectives.categorical_accuracy(
+        lasagne.layers.get_output(l_output, deterministic=False), true_output))
+    all_params = lasagne.layers.get_all_params(l_output)
+    # Use ADADELTA for updates
+    updates = lasagne.updates.adadelta(loss_train, all_params)
+    train = theano.function([l_in.input_var, true_output], loss_train, updates=updates)
+
+    # This is the function we'll use to compute the network's output given an input
+    # (e.g., for computing accuracy).  Again, we don't want to apply dropout here
+    # so we set the deterministic kwarg to True.
+    get_output = theano.function([l_in.input_var],
+                             lasagne.layers.get_output(l_output, deterministic=True))
+
+
+    BATCH_SIZE = 100
+    N_EPOCHS = 10
+    # Keep track of which batch we're training with
+    batch_idx = 0
+    # Keep track of which epoch we're on
+    epoch = 0
+    while epoch < N_EPOCHS:
+        # Extract the training data/label batch and update the parameters with it
+        train(x_train[batch_idx:batch_idx + BATCH_SIZE],
+              y_train[batch_idx:batch_idx + BATCH_SIZE])
+        batch_idx += BATCH_SIZE
+        # Once we've trained on the entire training set...
+        if batch_idx >= x_train.shape[0]:
+            # Reset the batch index
+            batch_idx = 0
+            # Update the number of epochs trained
+            epoch += 1
+            # Compute the network's output on the validation data
+            val_output = get_output(x_val)
+            # The predicted class is just the index of the largest probability in the output
+            val_predictions = np.argmax(val_output, axis=1)
+            # The accuracy is the average number of correct predictions
+            accuracy = np.mean(val_predictions == y_val)
+            print("Epoch {} validation accuracy: {}".format(epoch, accuracy))
 
     conv_layers = []
     layer1_inputs = []
@@ -233,15 +296,15 @@ def safe_update(dict_to, dict_from):
 def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
 
     def load_labels(filename, n_examples, dim):
-        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
+        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
 
     def load_vectors(filename, n_examples, n_words, dim):
-        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
+        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
         return data.reshape(1, n_examples, n_words, dim)
 
     x_all = load_vectors(xfile, n, w, d)[0]
-    y_all = load_labels(yfile, n, dim=4096)
+    y_all = load_labels(yfile, n_examples=2000, dim=4096)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -273,10 +336,10 @@ if __name__=="__main__":
     training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
     truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
-    # training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
-    #                 'proj/data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    # truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj' \
-    #               '/data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
+    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
+                    'proj/data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
+    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj' \
+                  '/data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
@@ -287,7 +350,7 @@ if __name__=="__main__":
     r = range(0,10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[200,4096],
+                              hidden_units=[4096,4096],
                               lr_decay=0.95,
                               filter_hs=[3,4,5],
                               conv_non_linear="relu",
@@ -297,5 +360,5 @@ if __name__=="__main__":
                               batch_size=100,
                               dropout_rate=[0.5])
         print "cv: " + str(i) + ", perf: " + str(perf)
-        results.append(perf)  
+        results.append(perf)
     print str(np.mean(results))
