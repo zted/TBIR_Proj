@@ -8,14 +8,11 @@ Much of the code is modified from
 - https://github.com/mdenil/dropout (for dropout)
 - https://groups.google.com/forum/#!topic/pylearn-dev/3QbKtCumAW4 (for Adadelta)
 """
-import cPickle
+
 import numpy as np
-from collections import defaultdict, OrderedDict
-import theano
+from collections import OrderedDict
 import theano.tensor as T
-import re
 import warnings
-import sys
 import time
 from conv_net_classes import *
 warnings.filterwarnings("ignore")
@@ -35,11 +32,9 @@ def Iden(x):
     return(y)
 
 def train_conv_net(datasets,
-                   old_datasets,
-                   U,
+                   hidden_units,
                    img_w=200,
                    filter_hs=[3,4,5],
-                   hidden_units=[100,2],
                    dropout_rate=[0.5],
                    shuffle_batch=True,
                    n_epochs=25,
@@ -67,26 +62,12 @@ def train_conv_net(datasets,
     for filter_h in filter_hs:
         filter_shapes.append((feature_maps, 1, filter_h, filter_w))
         pool_sizes.append((img_h-filter_h+1, img_w-filter_w+1))
-    parameters = [("image shape",img_h,img_w),("filter shape",filter_shapes), ("hidden_units",hidden_units),
-                  ("dropout", dropout_rate), ("batch_size",batch_size),("non_static", non_static),
-                    ("learn_decay",lr_decay), ("conv_non_linear", conv_non_linear), ("non_static", non_static)
-                    ,("sqr_norm_lim",sqr_norm_lim),("shuffle_batch",shuffle_batch)]
-    # print parameters
 
     #define model architecture
     index = T.lscalar()
     x = T.ftensor3('x')
-    y = T.ivector('y')
+    y = T.fmatrix('y')
     layer0_input = x.reshape((x.shape[0],1,x.shape[1],img_w))
-
-    # to find out what layer0_input is
-    # someDummy = T.matrix(dtype=Words.dtype)
-    # layer0_input = Words[T.cast(x.flatten(),dtype="int32")].reshape((x.shape[0],1,x.shape[1],Words.shape[1]))
-    # find_value = theano.function([x, someDummy], layer0_input, givens=[(Words, someDummy)])
-    # find_value([[1,0],[0,1]],[[1,1,1],[4,4,4]])
-    # inputVector = T.matrix('input')
-    # k = inputVector.reshape((-1,1, 2, 3))
-    # reshapeStuff = theano.function([inputVector], k)
 
     conv_layers = []
     layer1_inputs = []
@@ -98,9 +79,9 @@ def train_conv_net(datasets,
         layer1_input = conv_layer.output.flatten(2)
         conv_layers.append(conv_layer)
         layer1_inputs.append(layer1_input)
-    layer1_input = T.concatenate(layer1_inputs,1)
+    layer1_input = T.concatenate(layer1_inputs, axis=1)
     hidden_units[0] = feature_maps*len(filter_hs)
-    classifier = MLPDropout(rng, input=layer1_input, layer_sizes=hidden_units, activations=activations, dropout_rates=dropout_rate)
+    classifier = Dropout(rng, input=layer1_input, layer_sizes=hidden_units, activations=activations, dropout_rates=dropout_rate)
 
     #define parameters of the model and update functions using adadelta
     params = classifier.params
@@ -117,36 +98,43 @@ def train_conv_net(datasets,
         extra_data_num = batch_size - datasets[0].shape[0] % batch_size
         train_set = np.random.permutation(datasets[0])
         extra_data = train_set[:extra_data_num]
-        new_data=np.append(datasets[0],extra_data,axis=0)
+        new_data_x=np.append(datasets[0],extra_data,axis=0)
     else:
-        new_data = datasets[0]
-    new_data = np.random.permutation(new_data)
-    n_batches = new_data.shape[0]/batch_size
+        new_data_x = datasets[0]
+        new_data_y = datasets[1]
+    randPermute = np.random.permutation(len(new_data_x))
+    new_data_x = np.array([new_data_x[i] for i in randPermute])
+    new_data_y = np.array([new_data_y[i] for i in randPermute])
+    n_batches = new_data_x.shape[0]/batch_size
+    # print("batch size is", n_batches)
     n_train_batches = int(np.round(n_batches*0.9))
     #divide train set into train/val sets
-    test_set_x = datasets[0][:50]
-    test_set_y = np.asarray(old_datasets[1][:50,-1],"int32")
-    train_set = new_data[:n_train_batches*batch_size,:]
-    val_set = new_data[n_train_batches*batch_size:,:]
-    train_set_x, train_set_y = shared_dataset((train_set,old_datasets[1][:n_train_batches*batch_size,-1]))
-    val_set_x, val_set_y = shared_dataset((val_set,old_datasets[1][n_train_batches*batch_size:,-1]))
+    test_set_x = new_data_x[:200]
+    test_set_y = new_data_y[:200]
+    train_set_x = new_data_x[:n_train_batches*batch_size]
+    train_set_y = new_data_y[:n_train_batches*batch_size]
+    train_set_x, train_set_y = shared_dataset((train_set_x,train_set_y))
+    val_set_x = new_data_x[n_train_batches*batch_size:]
+    val_set_y = new_data_y[n_train_batches*batch_size:]
+    val_set_x, val_set_y = shared_dataset((val_set_x,val_set_y))
     n_val_batches = n_batches - n_train_batches
     val_model = theano.function([index], classifier.errors(y),
          givens={
             x: val_set_x[index * batch_size: (index + 1) * batch_size],
              y: val_set_y[index * batch_size: (index + 1) * batch_size]},
-                                allow_input_downcast=True)
-    #compile theano functions to get train/val/test errors
+                                allow_input_downcast=True, on_unused_input='warn')
+    # compile theano functions to get train/val/test errors
     test_model = theano.function([index], classifier.errors(y),
              givens={
                 x: train_set_x[index * batch_size: (index + 1) * batch_size],
                  y: train_set_y[index * batch_size: (index + 1) * batch_size]},
-                                 allow_input_downcast=True)
+                                 allow_input_downcast=True, on_unused_input='warn')
     train_model = theano.function([index], cost, updates=grad_updates,
           givens={
             x: train_set_x[index*batch_size:(index+1)*batch_size],
               y: train_set_y[index*batch_size:(index+1)*batch_size]},
-                                  allow_input_downcast = True)
+                                  allow_input_downcast = True, on_unused_input='warn')
+
     test_pred_layers = []
     test_size = test_set_x.shape[0]
     test_layer0_input = x.reshape((test_size,1,img_h,img_w))
@@ -155,7 +143,7 @@ def train_conv_net(datasets,
         test_pred_layers.append(test_layer0_output.flatten(2))
     test_layer1_input = T.concatenate(test_pred_layers, 1)
     test_y_pred = classifier.predict(test_layer1_input)
-    test_error = T.mean(T.neq(test_y_pred, y))
+    test_error = T.sum(abs(test_y_pred - y))
     test_model_all = theano.function([x,y], test_error, allow_input_downcast = True)
 
     #start training over mini-batches
@@ -171,21 +159,20 @@ def train_conv_net(datasets,
         if shuffle_batch:
             for minibatch_index in np.random.permutation(range(n_train_batches)):
                 cost_epoch = train_model(minibatch_index)
-                # set_zero(zero_vec)
         else:
             for minibatch_index in xrange(n_train_batches):
                 cost_epoch = train_model(minibatch_index)
-                # set_zero(zero_vec)
         train_losses = [test_model(i) for i in xrange(n_train_batches)]
-        train_perf = 1 - np.mean(train_losses)
+        train_perf = np.mean(train_losses)
         val_losses = [val_model(i) for i in xrange(n_val_batches)]
-        val_perf = 1- np.mean(val_losses)
-        print('epoch: %i, training time: %.2f secs, train perf: %.2f %%, val perf: %.2f %%' % (epoch, time.time()-start_time, train_perf * 100., val_perf*100.))
+        val_perf = np.mean(val_losses)
+        print('epoch: %i, training time: %.2f secs, train errors: %.2f, val errors: %.2f' % (epoch, time.time()-start_time, train_perf, val_perf))
         if val_perf >= best_val_perf:
             best_val_perf = val_perf
             test_loss = test_model_all(test_set_x,test_set_y)
             test_perf = 1- test_loss
     return test_perf
+
 
 def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
@@ -203,9 +190,10 @@ def shared_dataset(data_xy, borrow=True):
         shared_y = theano.shared(np.asarray(data_y,
                                                dtype=theano.config.floatX),
                                  borrow=borrow)
-        return shared_x, T.cast(shared_y, 'int32')
+        return shared_x, shared_y
 
-def sgd_updates_adadelta(params,cost,rho=0.95,epsilon=1e-6,norm_lim=9,word_vec_name='Words'):
+
+def sgd_updates_adadelta(params,cost,rho=0.95,epsilon=1e-6,norm_lim=9):
     """
     adadelta update rule, mostly from
     https://groups.google.com/forum/#!topic/pylearn-dev/3QbKtCumAW4 (for Adadelta)
@@ -237,6 +225,7 @@ def sgd_updates_adadelta(params,cost,rho=0.95,epsilon=1e-6,norm_lim=9,word_vec_n
             updates[param] = stepped_param
     return updates
 
+
 def as_floatX(variable):
     if isinstance(variable, float):
         return np.cast[theano.config.floatX](variable)
@@ -244,6 +233,7 @@ def as_floatX(variable):
     if isinstance(variable, np.ndarray):
         return np.cast[theano.config.floatX](variable)
     return theano.tensor.cast(variable, theano.config.floatX)
+
 
 def safe_update(dict_to, dict_from):
     """
@@ -255,39 +245,6 @@ def safe_update(dict_to, dict_from):
         dict_to[key] = val
     return dict_to
 
-def get_idx_from_sent(sent, word_idx_map, max_l=51, k=300, filter_h=5):
-    """
-    Transforms sentence into a list of indices. Pad with zeroes.
-    """
-    x = []
-    pad = filter_h - 1
-    for i in xrange(pad):
-        x.append(0)
-    words = sent.split()
-    for word in words:
-        if word in word_idx_map:
-            x.append(word_idx_map[word])
-    while len(x) < max_l+2*pad:
-        x.append(0)
-    return x
-
-def make_idx_data_cv(revs, word_idx_map, cv, max_l=51, k=300, filter_h=5):
-    """
-    Transforms sentences into a 2-d matrix.
-    """
-    train, test = [], []
-    for rev in revs:
-        sent = get_idx_from_sent(rev["text"], word_idx_map, max_l, k, filter_h)
-        sent.append(rev["y"])
-        if rev["split"]==cv:
-            test.append(sent)
-        else:
-            train.append(sent)
-    train = np.array(train,dtype="int")
-    test = np.array(test,dtype="int")
-    # print(train.shape)
-    # print(test.shape)
-    return [train, test]
 
 def load_my_data(training, gt):
 
@@ -297,65 +254,38 @@ def load_my_data(training, gt):
 
     def load_vectors(filename, words, dim):
         data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
-        return data.reshape(1, 200, words, dim)
+        return data.reshape(1, 2000, words, dim)
 
-    X_train = load_vectors(training, words=10, dim=200)[0]
-    y_train = load_labels(gt, n=200, dim=4096)
-    # image vectors always have dim 4096
+    x_all = load_vectors(training, words=10, dim=200)[0]
+    y_all = load_labels(gt, n=2000, dim=4096)
 
-    # X_test = load_vectors('200n_200dim_10w_training_x.txt', words=10, dim=200)
-    # y_test = load_labels('200n_200dim_10w_training_gt.txt', n=200, dim=4096)
-
-    # # We reserve the last 10000 training examples for validation.
-    # X_train, X_val = X_train[:-50], X_train[-50:]
-    # y_train, y_val = y_train[:-50], y_train[-50:]
-
-    return [X_train, y_train]
+    return [x_all, y_all]
 
 if __name__=="__main__":
-    print "loading data...",
-    x = cPickle.load(open("../data/mr.p","rb"))
-
-    revs, W, W2, word_idx_map, vocab = x[0], x[1], x[2], x[3], x[4]
-    print "data loaded!"
-    mode= sys.argv[1]
-    word_vectors = sys.argv[2]
-    if mode=="-nonstatic":
-        print "model architecture: CNN-non-static"
-        non_static=False
-    elif mode=="-static":
-        print "model architecture: CNN-static"
-        non_static=False
-    execfile("conv_net_classes.py")
-    if word_vectors=="-rand":
-        print "using: random vectors"
-
-    elif word_vectors=="-word2vec":
-        print "using: word2vec vectors"
 
     training_file = '../data/200n_200dim_10w_training_x.txt'
     truths_file = '../data/200n_200dim_10w_training_gt.txt'
 
-    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/200n_200dim_10w_training_x.txt'
-    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/200n_200dim_10w_training_gt.txt'
+    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/2000n_200dim_10w_training_x.txt'
+    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/2000n_200dim_10w_training_gt.txt'
+
+    print "loading data...",
+    datasets = load_my_data(training_file, truths_file)
+    print "data loaded!"
 
     results = []
     r = range(0,10)
     for i in r:
-        old_datasets = make_idx_data_cv(revs, word_idx_map, i, max_l=56,k=300, filter_h=5)
-        datasets = load_my_data(training_file, truths_file)
         perf = train_conv_net(datasets,
-                              old_datasets,
-                              W,
+                              hidden_units=[200,4096],
                               lr_decay=0.95,
                               filter_hs=[3,4,5],
                               conv_non_linear="relu",
-                              hidden_units=[100,2],
                               shuffle_batch=True,
                               n_epochs=5,
                               sqr_norm_lim=9,
                               non_static=True,
-                              batch_size=10,
+                              batch_size=100,
                               dropout_rate=[0.5])
         print "cv: " + str(i) + ", perf: " + str(perf)
         results.append(perf)  
