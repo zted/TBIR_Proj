@@ -66,8 +66,8 @@ def train_conv_net(datasets,
 
     #define model architecture
     index = T.lscalar()
-    x = T.ftensor3('x')
-    y = T.fmatrix('y')
+    x = T.tensor3('x', dtype='float32')
+    y = T.matrix('y', dtype='float32')
     layer0_input = x.reshape((x.shape[0], 1, x.shape[1], img_w))
 
     conv_layers = []
@@ -233,11 +233,11 @@ def safe_update(dict_to, dict_from):
 def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
 
     def load_labels(filename, n_examples, dim):
-        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
+        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
 
     def load_vectors(filename, n_examples, n_words, dim):
-        data = np.fromfile(filename, dtype=np.float64, count=-1, sep=' ')
+        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(1, n_examples, n_words, dim)
 
     x_all = load_vectors(xfile, n, w, d)[0]
@@ -273,10 +273,10 @@ if __name__=="__main__":
     training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
     truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
-    training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
-                    'proj/data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj' \
-                  '/data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
+    # training_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
+    #                 'proj/data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
+    # truths_file = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj' \
+    #               '/data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
