@@ -37,19 +37,20 @@ def create_indices_for_vectors(file, skip_header=False, limit=1000000):
 
 def unit_vector(v):
     denom = np.linalg.norm(v)
-    v = v*0 if denom == 0 else v/denom
+    v = v * 0 if denom == 0 else v / denom
     return v
 
 
 def get_vector(file, line_number, offset=0):
     with open(file, 'r') as f:
-        line = list(islice(f,line_number-1,line_number))[0]
+        line = list(islice(f, line_number - 1, line_number))[0]
         # islice does not open the entire file, making it much more
         # memory efficient. the +1 and +2 is because index starts at 0
-    v = line.rstrip('\n').split(' ')[1+offset:]
+    v = line.rstrip('\n').split(' ')[1 + offset:]
     # offset needed because there may be spaces or other characters
     # after the first word, but we only want to obtain vectors
     return np.array(list(map(float, v)))
+
 
 t0 = time.time()
 word_dim = 200
@@ -78,16 +79,14 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 number_examples_processed = 0
-output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt'\
+output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt' \
     .format(number_training_examples, word_dim, num_words)
-output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt'\
+output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt' \
     .format(number_training_examples, word_dim, num_words)
 fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
-
 with open(text_training, 'r') as f:
-
     for line in f:
         stemmedWords = set([])
         newArray = np.empty([num_words, word_dim])
@@ -95,17 +94,17 @@ with open(text_training, 'r') as f:
         answer = long_string[0]
         answer_index = image_index[answer]
         answer_vector = get_vector(image_embeddings, answer_index, offset=1)
-        total_words = int(len(long_string)/2)
+        total_words = int(len(long_string) / 2)
 
-        if total_words-1 <= num_words:
+        if total_words - 1 <= num_words:
             # not enough words, don't bother using this as example
             continue
         count = 0
 
         for i in range(1, total_words):
-            word = long_string[2*i].split("'")[0]
+            word = long_string[2 * i].split("'")[0]
             # remove apostrophes
-            score = long_string[2*i+1]
+            score = long_string[2 * i + 1]
 
             try:
                 stem = stemmer.stem(word)
@@ -148,7 +147,7 @@ with open(text_training, 'r') as f:
             fx.write(' '.join(flattenedArray) + '\n')
             fy.write(' '.join(answer_vector) + '\n')
             number_examples_processed += 1
-            if number_examples_processed % (number_training_examples/10) == 0:
+            if number_examples_processed % (number_training_examples / 10) == 0:
                 print(str(number_examples_processed) + ' examples processed')
         else:
             continue
