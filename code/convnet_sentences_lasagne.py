@@ -8,13 +8,15 @@ warnings.filterwarnings("ignore")
 
 def train_conv_net(datasets,
                    hidden_units,
-                   img_w=200,
+                   num_filters=[32, 32, 32],
                    filter_hs=[3, 4, 5],
                    dropout_rate=0.5,
                    n_epochs=25,
                    batch_size=50):
     x_train, y_train, x_val, y_val, x_test, y_test = datasets
 
+    assert len(num_filters) == len(filter_hs)
+    img_w = len(x_train[0][0][0])
     img_h = len(x_train[0][0])
     filter_shapes = []
     pool_sizes = []
@@ -27,23 +29,15 @@ def train_conv_net(datasets,
     l_in = lasagne.layers.InputLayer(
         shape=(None, input_shape[0], input_shape[1], input_shape[2]))
 
-
-    l_conv1 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[0],
+    layer_list = []
+    for i in range(len(filter_hs)):
+        l_conv = lasagne.layers.Conv2DLayer(l_in, num_filters=num_filters[i], filter_size=filter_shapes[i],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=pool_sizes[0])
+        l_pool = lasagne.layers.MaxPool2DLayer(l_conv, pool_size=pool_sizes[i])
+        layer_list.append(l_pool)
 
-    l_conv2 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[1],
-                                         nonlinearity=lasagne.nonlinearities.rectify,
-                                         W=lasagne.init.HeNormal(gain='relu'))
-    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=pool_sizes[1])
-
-    l_conv3 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[2],
-                                         nonlinearity=lasagne.nonlinearities.rectify,
-                                         W=lasagne.init.HeNormal(gain='relu'))
-    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=pool_sizes[2])
-
-    mergedLayer = lasagne.layers.ConcatLayer([l_pool1, l_pool2, l_pool3])
+    mergedLayer = lasagne.layers.ConcatLayer(layer_list)
 
     l_hidden1 = lasagne.layers.DenseLayer(mergedLayer, num_units=hidden_units[0],
                                           nonlinearity=lasagne.nonlinearities.rectify,
@@ -66,6 +60,10 @@ def train_conv_net(datasets,
     get_output = theano.function([l_in.input_var],
                                  lasagne.layers.get_output(l_output, deterministic=True))
 
+    # x_train, y_train = shared_dataset((x_train, y_train))
+    # x_val, y_val = shared_dataset((x_val, y_val))
+    # note that using shared variables does not work at the moment with lasagne
+
     # Keep track of which batch we're training with
     batch_idx = 0
     epoch = 0
@@ -82,9 +80,11 @@ def train_conv_net(datasets,
             epoch += 1
             # Compute the network's output on the validation data
             val_output = get_output(x_val)
+            print(val_output)
             # The accuracy is the average number of correct predictions
             error = np.sum(abs(val_output - y_val)) / val_output.shape[0]
-            print("Epoch {} validation errors: {}".format(epoch, error))
+            sum_val = np.sum(abs(y_val))/val_output.shape[0]
+            print("Epoch {} validation errors: {} validation total values: {}".format(epoch, error, sum_val))
 
     return error
 
@@ -99,12 +99,8 @@ def shared_dataset(data_xy, borrow=True):
     variable) would lead to a large decrease in performance.
     """
     data_x, data_y = data_xy
-    shared_x = theano.shared(np.asarray(data_x,
-                                        dtype=theano.config.floatX),
-                             borrow=borrow)
-    shared_y = theano.shared(np.asarray(data_y,
-                                        dtype=theano.config.floatX),
-                             borrow=borrow)
+    shared_x = theano.shared(np.asarray(data_x,dtype=theano.config.floatX),borrow=borrow)
+    shared_y = theano.shared(np.asarray(data_y,dtype=theano.config.floatX),borrow=borrow)
     return shared_x, shared_y
 
 
@@ -165,7 +161,7 @@ if __name__ == "__main__":
     for i in r:
         perf = train_conv_net(datasets,
                               hidden_units=[200, 4096],
-                              img_w=dim,
+                              num_filters=[32, 64, 128],
                               filter_hs=[3, 4, 5],
                               n_epochs=10,
                               batch_size=100,

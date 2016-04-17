@@ -72,7 +72,7 @@ def train_conv_net(datasets,
 
     conv_layers = []
     layer1_inputs = []
-    for i in xrange(len(filter_hs)):
+    for i in range(len(filter_hs)):
         filter_shape = filter_shapes[i]
         pool_size = pool_sizes[i]
         conv_layer = LeNetConvPoolLayer(rng, input=layer0_input,image_shape=(batch_size, 1, img_h, img_w),
@@ -142,11 +142,11 @@ def train_conv_net(datasets,
             for minibatch_index in np.random.permutation(range(n_train_batches)):
                 cost_epoch = train_model(minibatch_index)
         else:
-            for minibatch_index in xrange(n_train_batches):
+            for minibatch_index in range(n_train_batches):
                 cost_epoch = train_model(minibatch_index)
-        train_losses = [test_model(i) for i in xrange(n_train_batches)]
+        train_losses = [test_model(i) for i in range(n_train_batches)]
         train_perf = np.mean(train_losses)
-        val_losses = [val_model(i) for i in xrange(n_val_batches)]
+        val_losses = [val_model(i) for i in range(n_val_batches)]
         val_perf = np.mean(val_losses)
         # print(show_prediction(x_test))
         # print(np.asarray(show_prediction).shape)
