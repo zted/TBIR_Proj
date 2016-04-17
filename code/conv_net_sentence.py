@@ -103,18 +103,18 @@ def train_conv_net(datasets,
          givens={
             x: x_val[index * batch_size: (index + 1) * batch_size],
              y: y_val[index * batch_size: (index + 1) * batch_size]},
-                                allow_input_downcast=True, on_unused_input='warn')
+                                allow_input_downcast=True)
     # compile theano functions to get train/val/test errors
     test_model = theano.function([index], classifier.errors(y),
              givens={
                 x: x_train[index * batch_size: (index + 1) * batch_size],
                  y: y_train[index * batch_size: (index + 1) * batch_size]},
-                                 allow_input_downcast=True, on_unused_input='warn')
+                                 allow_input_downcast=True)
     train_model = theano.function([index], cost, updates=grad_updates,
           givens={
             x: x_train[index*batch_size:(index+1)*batch_size],
               y: y_train[index*batch_size:(index+1)*batch_size]},
-                                  allow_input_downcast = True, on_unused_input='warn')
+                                  allow_input_downcast = True)
 
     test_pred_layers = []
     test_size = x_test.shape[0]
