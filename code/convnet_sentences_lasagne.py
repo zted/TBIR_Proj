@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 def train_conv_net(datasets,
                    hidden_units,
                    img_w=200,
-                   filter_hs=[3, 3, 3],
+                   filter_hs=[3, 4, 5],
                    dropout_rate=0.5,
                    n_epochs=25,
                    batch_size=50):
@@ -19,30 +19,33 @@ def train_conv_net(datasets,
     filter_shapes = []
     pool_sizes = []
     for filter_h in filter_hs:
-        filter_shapes.append((2, 20))
-        pool_sizes.append((img_h - filter_h + 1, img_w / 10))
+        filter_shapes.append((filter_h, img_w))
+        pool_sizes.append((img_h - filter_h + 1, 1))
         # TODO: fix these filter shapes and pool sizes
 
     input_shape = x_train[0].shape
     l_in = lasagne.layers.InputLayer(
         shape=(None, input_shape[0], input_shape[1], input_shape[2]))
 
+
     l_conv1 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[0],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=(2, 2))
+    l_pool1 = lasagne.layers.MaxPool2DLayer(l_conv1, pool_size=pool_sizes[0])
 
-    l_conv2 = lasagne.layers.Conv2DLayer(l_pool1, num_filters=32, filter_size=filter_shapes[0],
+    l_conv2 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[1],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=(2, 2))
+    l_pool2 = lasagne.layers.MaxPool2DLayer(l_conv2, pool_size=pool_sizes[1])
 
-    l_conv3 = lasagne.layers.Conv2DLayer(l_pool2, num_filters=32, filter_size=filter_shapes[0],
+    l_conv3 = lasagne.layers.Conv2DLayer(l_in, num_filters=32, filter_size=filter_shapes[2],
                                          nonlinearity=lasagne.nonlinearities.rectify,
                                          W=lasagne.init.HeNormal(gain='relu'))
-    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=(2, 2))
+    l_pool3 = lasagne.layers.MaxPool2DLayer(l_conv3, pool_size=pool_sizes[2])
 
-    l_hidden1 = lasagne.layers.DenseLayer(l_pool3, num_units=hidden_units[0],
+    mergedLayer = lasagne.layers.ConcatLayer([l_pool1, l_pool2, l_pool3])
+
+    l_hidden1 = lasagne.layers.DenseLayer(mergedLayer, num_units=hidden_units[0],
                                           nonlinearity=lasagne.nonlinearities.rectify,
                                           W=lasagne.init.HeNormal(gain='relu'))
     l_hidden1_dropout = lasagne.layers.DropoutLayer(l_hidden1, p=dropout_rate)
