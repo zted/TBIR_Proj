@@ -282,7 +282,7 @@ if __name__ == "__main__":
     num_words = 40
 
     training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    truths_file = '../data/{0}n_training_gt.txt'.format(num_examples)
+    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,

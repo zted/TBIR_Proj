@@ -79,9 +79,10 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 number_examples_processed = 0
-output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt'\
+output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt' \
     .format(number_training_examples, word_dim, num_words)
-output_y = '../results/{0}n_training_gt.txt'.format(number_training_examples)
+output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt' \
+    .format(number_training_examples, word_dim, num_words)
 fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
