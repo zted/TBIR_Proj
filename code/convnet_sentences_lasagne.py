@@ -3,6 +3,7 @@ import warnings
 from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
+import sys
 
 warnings.filterwarnings("ignore")
 
@@ -13,7 +14,8 @@ def train_conv_net(datasets,
                    filter_hs=[3, 4, 5],
                    dropout_rate=[0.5],
                    n_epochs=25,
-                   batch_size=50):
+                   batch_size=50,
+                   load_model=False):
     x_train, y_train, x_val, y_val, x_test, y_test = datasets
 
     assert len(num_filters) == len(filter_hs)
@@ -40,13 +42,17 @@ def train_conv_net(datasets,
     mergedLayer = LL.ConcatLayer(layer_list)
 
     l_hidden1 = LL.DenseLayer(mergedLayer, num_units=hidden_units[0],
-                              nonlinearity=L.nonlinearities.rectify,
+                              nonlinearity=L.nonlinearities.tanh,
                               W=L.init.HeNormal(gain='relu'))
     l_hidden1_dropout = LL.DropoutLayer(l_hidden1, p=dropout_rate[0])
 
-    l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
-                             nonlinearity=L.nonlinearities.linear)
+    l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1])
     net_output = LL.get_output(l_output)
+
+    if(load_model):
+        with np.load('../data/model.npz') as f:
+            param_values = [f['arr_%d' % i] for i in range(len(f.files))]
+        LL.set_all_param_values(l_output, param_values)
 
     true_output = T.matrix('true_output', dtype='float32')
 
@@ -91,6 +97,9 @@ def train_conv_net(datasets,
             train_error = np.sum(abs(train_output - current_y_train)) / train_output.shape[0]
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
 
+    # Now we save the model
+    np.savez('../data/model.npz', *LL.get_all_param_values(l_output))
+
     return val_error
 
 
@@ -119,7 +128,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
         return data.reshape(n_examples, 1, n_words, dim)
 
     x_all = load_vectors(xfile, n, w, d)
-    y_all = load_labels(yfile, n, dim=4096)
+    y_all = load_labels(yfile, n, dim=400)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -146,26 +155,34 @@ if __name__ == "__main__":
 
     num_examples = 2000
     dim = 200
-    num_words = 40
+    num_words = 20
 
     training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
+    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt_reduced.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
                             w=num_words, valPercent=0.3, testPercent=0.2)
     print "data loaded!"
 
+    try:
+        load_option = sys.argv[1]
+        if load_option == '-load_model':
+            load_model = True
+    except IndexError:
+        load_model = False
+
     results = []
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[1000, 4096],
-                              num_filters=[32, 64, 128],
+                              hidden_units=[400, 400],
+                              num_filters=[32, 32, 32],
                               filter_hs=[3, 4, 5],
-                              n_epochs=20,
+                              n_epochs=10,
                               batch_size=100,
-                              dropout_rate=[0.5])
+                              dropout_rate=[0.5],
+                              load_model=load_model)
         print "cv: " + str(i) + ", perf: " + str(perf)
         results.append(perf)
     print str(np.mean(results))
