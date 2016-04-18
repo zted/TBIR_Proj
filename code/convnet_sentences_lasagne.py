@@ -42,12 +42,13 @@ def train_conv_net(datasets,
     mergedLayer = LL.ConcatLayer(layer_list)
 
     l_hidden1 = LL.DenseLayer(mergedLayer, num_units=hidden_units[0],
-                              nonlinearity=L.nonlinearities.tanh,
+                              nonlinearity=L.nonlinearities.rectify,
                               W=L.init.HeNormal(gain='relu'))
     l_hidden1_dropout = LL.DropoutLayer(l_hidden1, p=dropout_rate[0])
 
-    l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1])
-    net_output = LL.get_output(l_output)
+    l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
+                             nonlinearity=L.nonlinearities.rectify)
+    net_output_train = LL.get_output(l_output, deterministic=False)
 
     if(load_model):
         with np.load('../data/model.npz') as f:
@@ -56,7 +57,7 @@ def train_conv_net(datasets,
 
     true_output = T.matrix('true_output', dtype='float32')
 
-    loss_train = T.sum(abs(net_output - true_output)) / net_output.shape[0]
+    loss_train = T.sum(abs(net_output_train - true_output)) / net_output_train.shape[0]
     all_params = LL.get_all_params(l_output)
     # Use ADADELTA for updates
     updates = L.updates.adadelta(loss_train, all_params)
@@ -65,8 +66,8 @@ def train_conv_net(datasets,
     # This is the function we'll use to compute the network's output given an input
     # (e.g., for computing accuracy).  Again, we don't want to apply dropout here
     # so we set the deterministic kwarg to True.
-    get_output = theano.function([l_in.input_var],
-                                 LL.get_output(l_output, deterministic=False))
+    net_output_val = theano.function([l_in.input_var],
+                                 LL.get_output(l_output, deterministic=True))
 
     # x_train, y_train = shared_dataset((x_train, y_train))
     # x_val, y_val = shared_dataset((x_val, y_val))
@@ -88,8 +89,8 @@ def train_conv_net(datasets,
             # Update the number of epochs trained
             epoch += 1
             # Compute the network's output on the validation data
-            val_output = get_output(x_val)
-            train_output = get_output(current_x_train)
+            val_output = net_output_val(x_val)
+            train_output = net_output_val(current_x_train)
             # print(val_output[0])
             # print(y_val[0])
             # The accuracy is the average number of correct predictions
