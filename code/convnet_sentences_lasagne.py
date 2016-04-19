@@ -5,6 +5,7 @@ import lasagne as L
 import lasagne.layers as LL
 import sys
 from sklearn.preprocessing import normalize
+from lasagne.updates import sgd, apply_momentum
 
 warnings.filterwarnings("ignore")
 
@@ -48,7 +49,7 @@ def train_conv_net(datasets,
     l_hidden1_dropout = LL.DropoutLayer(l_hidden1, p=dropout_rate[0])
 
     l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
-                             nonlinearity=L.nonlinearities.rectify)
+                             nonlinearity=L.nonlinearities.tanh)
     net_output_train = LL.get_output(l_output, deterministic=False)
 
     if (load_model):
@@ -60,8 +61,13 @@ def train_conv_net(datasets,
 
     loss_train = T.sum(L.objectives.squared_error(net_output_train, true_output)) / net_output_train.shape[0]
     all_params = LL.get_all_params(l_output)
+
     # Use ADADELTA for updates
-    updates = L.updates.adadelta(loss_train, all_params)
+    # updates = L.updates.adadelta(loss_train, all_params)
+
+    updates_sgd = sgd(loss_train, all_params, learning_rate=0.0001)
+    updates = apply_momentum(updates_sgd, all_params, momentum=0.9)
+
     train = theano.function([l_in.input_var, true_output], loss_train, updates=updates)
 
     # This is the function we'll use to compute the network's output given an input
@@ -185,8 +191,8 @@ if __name__ == "__main__":
     for i in r:
         perf = train_conv_net(datasets,
                               hidden_units=[400, 400],
-                              num_filters=[32, 32, 32],
-                              filter_hs=[3, 4, 5],
+                              num_filters=[32, 32, 64, 64],
+                              filter_hs=[3, 4, 5, 6],
                               n_epochs=10,
                               batch_size=100,
                               dropout_rate=[0.5],
