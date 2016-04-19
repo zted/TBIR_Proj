@@ -6,24 +6,25 @@ import numpy as np
 import time
 
 
-def bufferdFetch(file):
-    with open(file, 'r') as f:
+def buffered_fetch(fn):
+    with open(fn, 'r') as f:
         for line in f:
             yield line
 
 
-def create_indices_for_vectors(file, skip_header=False, limit=1000000):
-    '''
+def create_indices_for_vectors(fn, skip_header=False, limit=1000000):
+    """
     creates a mapping from the first word on each line to the line number
     useful for retrieving embeddings later for a given word, instead of
     having to store it in memory
-    :param file: file to create index from
+    :param fn: fn to create index from
     :param skip_header:
+    :param limit: the number of words we create indices for
     :return:
-    '''
+    """
     myDict = {}
     count = 0
-    for line in bufferdFetch(file):
+    for line in buffered_fetch(fn):
         count += 1
         if count > limit:
             break
@@ -41,10 +42,10 @@ def unit_vector(v):
     return v
 
 
-def get_vector(file, line_number, offset=0):
-    with open(file, 'r') as f:
+def get_vector(fn, line_number, offset=0):
+    with open(fn, 'r') as f:
         line = list(islice(f, line_number - 1, line_number))[0]
-        # islice does not open the entire file, making it much more
+        # islice does not open the entire fn, making it much more
         # memory efficient. the +1 and +2 is because index starts at 0
     v = line.rstrip('\n').split(' ')[1 + offset:]
     # offset needed because there may be spaces or other characters
@@ -95,7 +96,7 @@ with open(text_training, 'r') as f:
         answer_index = image_index[answer]
         answer_vector = get_vector(image_embeddings, answer_index, offset=1)
         total_words = int(len(long_string) / 2)
-
+        # usedWords = []
         if total_words - 1 <= num_words:
             # not enough words, don't bother using this as example
             continue
@@ -103,8 +104,22 @@ with open(text_training, 'r') as f:
 
         for i in range(1, total_words):
             word = long_string[2 * i].split("'")[0]
-            # remove apostrophes
+            # take out the apostrophe from words first
+
+            if (word in ignore_words) or (len(word) <= 3):
+            # ignore the stopwords
+                continue
+
+            if not word.isalpha():
+                # ignore words that are not purely alphabets, so 69ers, etc
+                # TODO: see if we should change this to allow alpha numeric
+                continue
+
+            # TODO: remove words based on concreteness
+            # TODO: remove training examples based on dispersion?
+
             score = long_string[2 * i + 1]
+            # we may add this information later into the word vector
 
             try:
                 stem = stemmer.stem(word)
@@ -131,6 +146,7 @@ with open(text_training, 'r') as f:
                     except KeyError as e:
                         continue
 
+            # usedWords.append(word)
             word_vector = unit_vector(get_vector(word_embeddings, index, 0))
             stemmedWords.add(stem)
             newArray[count] = word_vector.tolist()
@@ -141,6 +157,7 @@ with open(text_training, 'r') as f:
                 break
 
         if count >= num_words:
+            # print(usedWords)
             flattenedArray = newArray.flatten()
             flattenedArray = [str(i) for i in flattenedArray.tolist()]
             answer_vector = [str(i) for i in answer_vector.tolist()]
