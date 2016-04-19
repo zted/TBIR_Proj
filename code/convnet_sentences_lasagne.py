@@ -4,6 +4,7 @@ from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
 import sys
+from sklearn.preprocessing import normalize
 
 warnings.filterwarnings("ignore")
 
@@ -50,14 +51,14 @@ def train_conv_net(datasets,
                              nonlinearity=L.nonlinearities.rectify)
     net_output_train = LL.get_output(l_output, deterministic=False)
 
-    if(load_model):
+    if (load_model):
         with np.load('../data/model.npz') as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
         LL.set_all_param_values(l_output, param_values)
 
     true_output = T.matrix('true_output', dtype='float32')
 
-    loss_train = T.sum(abs(net_output_train - true_output)) / net_output_train.shape[0]
+    loss_train = T.sum(L.objectives.squared_error(net_output_train, true_output)) / net_output_train.shape[0]
     all_params = LL.get_all_params(l_output)
     # Use ADADELTA for updates
     updates = L.updates.adadelta(loss_train, all_params)
@@ -67,7 +68,7 @@ def train_conv_net(datasets,
     # (e.g., for computing accuracy).  Again, we don't want to apply dropout here
     # so we set the deterministic kwarg to True.
     net_output_val = theano.function([l_in.input_var],
-                                 LL.get_output(l_output, deterministic=True))
+                                     LL.get_output(l_output, deterministic=True))
 
     # x_train, y_train = shared_dataset((x_train, y_train))
     # x_val, y_val = shared_dataset((x_val, y_val))
@@ -94,8 +95,8 @@ def train_conv_net(datasets,
             # print(val_output[0])
             # print(y_val[0])
             # The accuracy is the average number of correct predictions
-            val_error = np.sum(abs(val_output - y_val)) / y_val.shape[0]
-            train_error = np.sum(abs(train_output - current_y_train)) / train_output.shape[0]
+            val_error = np.sum(L.objectives.squared_error(val_output, y_val)) / y_val.shape[0]
+            train_error = np.sum(L.objectives.squared_error(train_output, current_y_train)) / train_output.shape[0]
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
 
     # Now we save the model
@@ -129,7 +130,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
         return data.reshape(n_examples, 1, n_words, dim)
 
     x_all = load_vectors(xfile, n, w, d)
-    y_all = load_labels(yfile, n, dim=400)
+    y_all = normalize(load_labels(yfile, n, dim=400))
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -154,6 +155,19 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
 
 if __name__ == "__main__":
 
+    load_model = False
+    try:
+        load_option = sys.argv[1]
+        if load_option == '-load_model':
+            load_model = True
+    except IndexError:
+        pass
+
+    if load_model:
+        print('Loading previously trained model')
+    else:
+        print('Training fresh model')
+
     num_examples = 2000
     dim = 200
     num_words = 20
@@ -165,13 +179,6 @@ if __name__ == "__main__":
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
                             w=num_words, valPercent=0.3, testPercent=0.2)
     print "data loaded!"
-
-    try:
-        load_option = sys.argv[1]
-        if load_option == '-load_model':
-            load_model = True
-    except IndexError:
-        load_model = False
 
     results = []
     r = range(0, 10)
