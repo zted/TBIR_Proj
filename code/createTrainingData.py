@@ -12,7 +12,7 @@ def buffered_fetch(fn):
             yield line
 
 
-def create_indices_for_vectors(fn, skip_header=False, limit=1000000):
+def create_indices_for_vectors(fn, skip_header=False, limit=10000000):
     """
     creates a mapping from the first word on each line to the line number
     useful for retrieving embeddings later for a given word, instead of
@@ -57,20 +57,21 @@ t0 = time.time()
 word_dim = 200
 num_words = 10
 # least number of words needed for each example
-number_training_examples = 200
+number_training_examples = 2000
 
-image_embeddings = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
-text_training = '../../CLEF/Features/Textual/train_data.txt'
 
-# image_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
+IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
+WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
+TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
+
+# IMAGE_EMBEDDINGS = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
 #                    'CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-# word_embeddings = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/glove.6B/glove.6B.200d.txt'
-# text_training = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
+# WORD_EMBEDDINGS = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/glove.6B/glove.6B.200d.txt'
+# TEXT_TRAINING = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
 
-image_index = create_indices_for_vectors(image_embeddings,
+image_index = create_indices_for_vectors(IMAGE_EMBEDDINGS,
                                          skip_header=True)
-word_index = create_indices_for_vectors(word_embeddings,
+word_index = create_indices_for_vectors(WORD_EMBEDDINGS,
                                         skip_header=True)
 
 print('Time taken to create word and image indices: ' + str(time.time() - t0))
@@ -87,16 +88,33 @@ output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt' \
 fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
-with open(text_training, 'r') as f:
+unique_words = set([])
+
+CONCRETENESS = '../data/Concreteness_ratings.txt'
+concrete_words = set([])
+with open(CONCRETENESS, 'r') as f:
+    for n, line in enumerate(f):
+        if n == 0: continue
+        line = line.split("\t")
+        word = line[0]
+        score = float(line[2])
+        if score < 3.0:
+            # concreteness threshold that we accept
+            continue
+        concrete_words.add(word)
+        concrete_words.add(stemmer.stem(word))
+
+
+with open(TEXT_TRAINING, 'r') as f:
     for line in f:
         stemmedWords = set([])
         newArray = np.empty([num_words, word_dim])
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
-        answer_vector = get_vector(image_embeddings, answer_index, offset=1)
+        answer_vector = get_vector(IMAGE_EMBEDDINGS, answer_index, offset=1)
         total_words = int(len(long_string) / 2)
-        # usedWords = []
+        usedWords = []
         if total_words - 1 <= num_words:
             # not enough words, don't bother using this as example
             continue
@@ -111,11 +129,10 @@ with open(text_training, 'r') as f:
                 continue
 
             if not word.isalpha():
-                # ignore words that are not purely alphabets, so 69ers, etc
+                # ignore words that are not purely alphabets, so 76ers, etc
                 # TODO: see if we should change this to allow alpha numeric
                 continue
 
-            # TODO: remove words based on concreteness
             # TODO: remove training examples based on dispersion?
 
             score = long_string[2 * i + 1]
@@ -133,6 +150,11 @@ with open(text_training, 'r') as f:
                 # we've already used a variant of the word in this example
                 continue
 
+            if (not lemma in concrete_words) and (not stem in concrete_words):
+                # if word does not meet a certain concrete score or doesn't exist
+                # in concreteness file, we skip it
+                continue
+
             try:
                 index = word_index[word]
             except KeyError:
@@ -146,8 +168,8 @@ with open(text_training, 'r') as f:
                     except KeyError as e:
                         continue
 
-            # usedWords.append(word)
-            word_vector = unit_vector(get_vector(word_embeddings, index, 0))
+            usedWords.append(word)
+            word_vector = unit_vector(get_vector(WORD_EMBEDDINGS, index, 0))
             stemmedWords.add(stem)
             newArray[count] = word_vector.tolist()
             count += 1
@@ -158,6 +180,8 @@ with open(text_training, 'r') as f:
 
         if count >= num_words:
             # print(usedWords)
+            for u in usedWords:
+                unique_words.add(u)
             flattenedArray = newArray.flatten()
             flattenedArray = [str(i) for i in flattenedArray.tolist()]
             answer_vector = [str(i) for i in answer_vector.tolist()]
@@ -172,5 +196,6 @@ with open(text_training, 'r') as f:
         if number_examples_processed >= number_training_examples:
             break
 
+print(len(unique_words))
 fx.close()
 fy.close()
