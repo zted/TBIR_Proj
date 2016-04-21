@@ -49,7 +49,7 @@ def train_conv_net(datasets,
     l_hidden1_dropout = LL.DropoutLayer(l_hidden1, p=dropout_rate[0])
 
     l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
-                             nonlinearity=L.nonlinearities.tanh)
+                             nonlinearity=L.nonlinearities.rectify)
     net_output_train = LL.get_output(l_output, deterministic=False)
 
     if (load_model):
@@ -63,11 +63,7 @@ def train_conv_net(datasets,
     all_params = LL.get_all_params(l_output)
 
     # Use ADADELTA for updates
-    # updates = L.updates.adadelta(loss_train, all_params)
-
-    updates_sgd = sgd(loss_train, all_params, learning_rate=0.0001)
-    updates = apply_momentum(updates_sgd, all_params, momentum=0.9)
-
+    updates = L.updates.adadelta(loss_train, all_params)
     train = theano.function([l_in.input_var, true_output], loss_train, updates=updates)
 
     # This is the function we'll use to compute the network's output given an input
@@ -136,7 +132,8 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
         return data.reshape(n_examples, 1, n_words, dim)
 
     x_all = load_vectors(xfile, n, w, d)
-    y_all = normalize(load_labels(yfile, n, dim=400))
+    # y_all = normalize(load_labels(yfile, n, dim=4096))
+    y_all = load_labels(yfile, n, dim=4096)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -176,10 +173,10 @@ if __name__ == "__main__":
 
     num_examples = 2000
     dim = 200
-    num_words = 20
+    num_words = 5
 
     training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt_reduced.txt'.format(num_examples, dim, num_words)
+    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
@@ -190,10 +187,10 @@ if __name__ == "__main__":
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[400, 400],
-                              num_filters=[32, 32, 64, 64],
-                              filter_hs=[3, 4, 5, 6],
-                              n_epochs=10,
+                              hidden_units=[400, 4096],
+                              num_filters=[32, 32, 32],
+                              filter_hs=[2, 3, 4],
+                              n_epochs=20,
                               batch_size=100,
                               dropout_rate=[0.5],
                               load_model=load_model)

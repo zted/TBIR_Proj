@@ -157,14 +157,17 @@ with open(TEXT_TRAINING, 'r') as f:
 
             try:
                 index = word_index[word]
+                usedWords.append(word)
             except KeyError:
 
                 try:
                     index = word_index[lemma]
+                    usedWords.append(lemma)
                 except KeyError:
 
                     try:
                         index = word_index[stem]
+                        usedWords.append(stem)
                     except KeyError as e:
                         continue
 
