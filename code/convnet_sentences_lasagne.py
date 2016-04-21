@@ -4,6 +4,7 @@ from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
 import sys
+from itertools import islice
 from sklearn.preprocessing import normalize
 from lasagne.updates import sgd, apply_momentum
 
@@ -18,7 +19,7 @@ def train_conv_net(datasets,
                    n_epochs=25,
                    batch_size=50,
                    load_model=False):
-    x_train, y_train, x_val, y_val, x_test, y_test = datasets
+    x_train, y_train, x_val, y_val = datasets
 
     assert len(num_filters) == len(filter_hs)
     img_w = len(x_train[0][0][0])
@@ -107,31 +108,63 @@ def train_conv_net(datasets,
     return val_error
 
 
-def shared_dataset(data_xy, borrow=True):
-    """ Function that loads the dataset into shared variables
+def load_my_data(xfile, yfile, n, d, w, valPercent):
 
-    The reason we store our dataset in shared variables is to allow
-    Theano to copy it into the GPU memory (when code is run on GPU).
-    Since copying data into the GPU is slow, copying a minibatch everytime
-    is needed (the default behaviour if the data is not in a shared
-    variable) would lead to a large decrease in performance.
-    """
-    data_x, data_y = data_xy
-    shared_x = theano.shared(np.asarray(data_x, dtype=theano.config.floatX), borrow=borrow)
-    shared_y = theano.shared(np.asarray(data_y, dtype=theano.config.floatX), borrow=borrow)
-    return shared_x, shared_y
+    def buffered_fetch(fn):
+        with open(fn, 'r') as f:
+            for line in f:
+                yield line
 
+    def create_indices_for_vectors(fn, skip_header=False, limit=10000000):
+        """
+        creates a mapping from the first word on each line to the line number
+        useful for retrieving embeddings later for a given word, instead of
+        having to store it in memory
+        :param fn: fn to create index from
+        :param skip_header:
+        :param limit: the number of words we create indices for
+        :return:
+        """
+        myDict = {}
+        count = 0
+        for line in buffered_fetch(fn):
+            count += 1
+            if count > limit:
+                break
+            if skip_header:
+                skip_header = False
+                continue
+            token = line.split(' ')[0]
+            myDict[token] = count
+        return myDict
 
-def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
+    def get_vector(fn, line_number, offset=0):
+        with open(fn, 'r') as f:
+            line = list(islice(f, line_number - 1, line_number))[0]
+            # islice does not open the entire fn, making it much more
+            # memory efficient. the +1 and +2 is because index starts at 0
+        v = line.rstrip('\n').split(' ')[1 + offset:]
+        # offset needed because there may be spaces or other characters
+        # after the first word, but we only want to obtain vectors
+        return np.array(list(map(float, v)), dtype=np.float32)
+
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
 
-    def load_vectors(filename, n_examples, n_words, dim):
-        data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
-        return data.reshape(n_examples, 1, n_words, dim)
+    def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
+        newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
+        word_idx = create_indices_for_vectors(embeddings_file)
+        with open(filename, 'r') as f:
+            for n, line in enumerate(f):
+                words = line.rstrip('\n').split(" ")
+                for m, w in enumerate(words):
+                    newVec[n][0][m] = get_vector(embeddings_file, word_idx[w])
+        return newVec
 
-    x_all = load_vectors(xfile, n, w, d)
+    WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
+
+    x_all = load_vectors(xfile, WORD_EMBEDDINGS, n, w, d)
     # y_all = normalize(load_labels(yfile, n, dim=4096))
     y_all = load_labels(yfile, n, dim=4096)
 
@@ -140,21 +173,14 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, testPercent):
     x_all = np.array([x_all[i] for i in randPermute])
     y_all = np.array([y_all[i] for i in randPermute])
     n_val = int(valPercent * n)
-    n_test = int(testPercent * n)
-    n_train = n - (n_val + n_test)
 
-    if n_train < 0:
-        raise ValueError('Invalid percentages of validation and test data')
-    x_train = x_all[:n_train]
-    x_val = x_all[n_train:n_train + n_val]
-    x_test = x_all[-n_test:]
+    x_train = x_all[:-n_val]
+    x_val = x_all[-n_val:]
 
-    y_train = y_all[:n_train]
-    y_val = y_all[n_train:n_train + n_val]
-    y_test = y_all[-n_test:]
+    y_train = y_all[:-n_val]
+    y_val = y_all[-n_val:]
 
-    return [x_train, y_train, x_val, y_val, x_test, y_test]
-
+    return [x_train, y_train, x_val, y_val]
 
 if __name__ == "__main__":
 
@@ -171,16 +197,16 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 2000
+    num_examples = 200
     dim = 200
     num_words = 5
 
-    training_file = '../data/{0}n_{1}dim_{2}w_training_x.txt'.format(num_examples, dim, num_words)
-    truths_file = '../data/{0}n_{1}dim_{2}w_training_gt.txt'.format(num_examples, dim, num_words)
+    training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
+    truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
-                            w=num_words, valPercent=0.3, testPercent=0.2)
+                            w=num_words, valPercent=0.2)
     print "data loaded!"
 
     results = []
@@ -196,4 +222,4 @@ if __name__ == "__main__":
                               load_model=load_model)
         print "cv: " + str(i) + ", perf: " + str(perf)
         results.append(perf)
-    print str(np.mean(results))
+    print "Final average perf: " + str(np.mean(results))

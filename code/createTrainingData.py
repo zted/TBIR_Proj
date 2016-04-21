@@ -55,7 +55,7 @@ def get_vector(fn, line_number, offset=0):
 
 t0 = time.time()
 word_dim = 200
-num_words = 10
+num_words = 5
 # least number of words needed for each example
 number_training_examples = 2000
 
@@ -81,10 +81,10 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 number_examples_processed = 0
-output_x = '../results/{0}n_{1}dim_{2}w_training_x.txt' \
-    .format(number_training_examples, word_dim, num_words)
-output_y = '../results/{0}n_{1}dim_{2}w_training_gt.txt' \
-    .format(number_training_examples, word_dim, num_words)
+output_x = '../results/{0}n_{1}w_training_x.txt' \
+    .format(number_training_examples, num_words)
+output_y = '../results/{0}n_{1}w_training_gt.txt' \
+    .format(number_training_examples, num_words)
 fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
@@ -103,7 +103,6 @@ with open(CONCRETENESS, 'r') as f:
             continue
         concrete_words.add(word)
         concrete_words.add(stemmer.stem(word))
-
 
 with open(TEXT_TRAINING, 'r') as f:
     for line in f:
@@ -171,10 +170,7 @@ with open(TEXT_TRAINING, 'r') as f:
                     except KeyError as e:
                         continue
 
-            usedWords.append(word)
-            word_vector = unit_vector(get_vector(WORD_EMBEDDINGS, index, 0))
             stemmedWords.add(stem)
-            newArray[count] = word_vector.tolist()
             count += 1
 
             if count >= num_words:
@@ -185,10 +181,8 @@ with open(TEXT_TRAINING, 'r') as f:
             # print(usedWords)
             for u in usedWords:
                 unique_words.add(u)
-            flattenedArray = newArray.flatten()
-            flattenedArray = [str(i) for i in flattenedArray.tolist()]
             answer_vector = [str(i) for i in answer_vector.tolist()]
-            fx.write(' '.join(flattenedArray) + '\n')
+            fx.write(' '.join(usedWords) + '\n')
             fy.write(' '.join(answer_vector) + '\n')
             number_examples_processed += 1
             if number_examples_processed % (number_training_examples / 10) == 0:
