@@ -66,20 +66,6 @@ stemmer = SnowballStemmer('english')
 IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
 image_index = create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
 
-# CONCRETENESS = '../data/Concreteness_ratings.txt'
-# concrete_words = set([])
-# with open(CONCRETENESS, 'r') as f:
-#     for n, line in enumerate(f):
-#         if n == 0: continue
-#         line = line.split("\t")
-#         word = line[0]
-#         score = float(line[2])
-#         if score < 3.0:
-#             # concreteness threshold that we accept
-#             continue
-#         concrete_words.add(word)
-#         concrete_words.add(stemmer.stem(word))
-
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 words_we_have = set([])
 with open(WORD_EMBEDDINGS, 'r') as f:
@@ -144,11 +130,6 @@ with open(TEXT_TRAINING, 'r') as f:
             if stem in stemmedWords:
                 # we've already used a variant of the word in this example
                 continue
-
-            # if (not lemma in concrete_words) and (not stem in concrete_words):
-            #     # if word does not meet a certain concrete score or doesn't exist
-            #     # in concreteness file, we skip it
-            #     continue
 
             if word in words_we_have:
                 usedWords.append(word)
