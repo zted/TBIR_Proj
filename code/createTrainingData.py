@@ -36,12 +36,6 @@ def create_indices_for_vectors(fn, skip_header=False, limit=10000000):
     return myDict
 
 
-def unit_vector(v):
-    denom = np.linalg.norm(v)
-    v = v * 0 if denom == 0 else v / denom
-    return v
-
-
 def get_vector(fn, line_number, offset=0):
     with open(fn, 'r') as f:
         line = list(islice(f, line_number - 1, line_number))[0]
