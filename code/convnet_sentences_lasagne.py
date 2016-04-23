@@ -44,12 +44,17 @@ def train_conv_net(datasets,
     mergedLayer = LL.ConcatLayer(layer_list)
 
     l_hidden1 = LL.DenseLayer(mergedLayer, num_units=hidden_units[0],
-                              nonlinearity=L.nonlinearities.rectify,
+                              nonlinearity=L.nonlinearities.tanh,
                               W=L.init.HeNormal(gain='relu'))
     l_hidden1_dropout = LL.DropoutLayer(l_hidden1, p=dropout_rate[0])
 
-    l_output = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
-                             nonlinearity=L.nonlinearities.rectify)
+    l_hidden2 = LL.DenseLayer(l_hidden1_dropout, num_units=hidden_units[1],
+                              nonlinearity=L.nonlinearities.tanh,
+                              W=L.init.HeNormal(gain='relu'))
+    l_hidden2_dropout = LL.DropoutLayer(l_hidden2, p=dropout_rate[1])
+
+    l_output = LL.DenseLayer(l_hidden2_dropout, num_units=hidden_units[2],
+                             nonlinearity=L.nonlinearities.tanh)
     net_output_train = LL.get_output(l_output, deterministic=False)
 
     if (load_model):
@@ -97,8 +102,8 @@ def train_conv_net(datasets,
             # print(val_output[0])
             # print(y_val[0])
             # The accuracy is the average number of correct predictions
-            val_error = np.sum(L.objectives.squared_error(val_output, y_val)) / y_val.shape[0]
-            train_error = np.sum(L.objectives.squared_error(train_output, current_y_train)) / train_output.shape[0]
+            val_error = np.mean(L.objectives.squared_error(val_output, y_val))*100
+            train_error = np.mean(L.objectives.squared_error(train_output, current_y_train))*100
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
 
     # Now we save the model
@@ -107,14 +112,13 @@ def train_conv_net(datasets,
     return val_error
 
 
-def load_my_data(xfile, yfile, n, d, w, valPercent):
-
+def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
     def buffered_fetch(fn):
         with open(fn, 'r') as f:
             for line in f:
                 yield line
 
-    def create_indices_for_vectors(fn, skip_header=False, limit=10000000):
+    def create_indices_for_vectors(fn, skip_header=False):
         """
         creates a mapping from the first word on each line to the line number
         useful for retrieving embeddings later for a given word, instead of
@@ -128,14 +132,12 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
         word_vectors = []
         count = 0
         for line in buffered_fetch(fn):
-            if count > limit:
-                break
             if skip_header:
                 skip_header = False
                 continue
             splitup = line.rstrip('\n').split(' ')
             token = splitup[0]
-            word_vectors.append(np.array(splitup[1:]))
+            word_vectors.append(np.array(splitup[1:], dtype=np.float32))
             myDict[token] = count
             count += 1
         return myDict, word_vectors
@@ -156,7 +158,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
 
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
-        word_idx, word_vectors = create_indices_for_vectors(embeddings_file)
+        word_idx, word_vectors = create_indices_for_vectors(embeddings_file, skip_header=True)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 words = line.rstrip('\n').split(' ')
@@ -165,10 +167,15 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
         return newVec
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
-
     x_all = load_vectors(xfile, WORD_EMBEDDINGS, n, w, d)
-    # y_all = normalize(load_labels(yfile, n, dim=4096))
     y_all = load_labels(yfile, n, dim=4096)
+
+    if reduction_size is not None:
+        pca_file = '../data/pca_{0}.txt'.format(reduction_size)
+        pca_reduction = np.fromfile(pca_file, dtype=np.float32, count=-1, sep=' ')
+        pca_reduction = pca_reduction.reshape(4096, reduction_size)
+        y_all = normalize(np.matmul(y_all, pca_reduction))
+    print(y_all.shape)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -183,6 +190,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
     y_val = y_all[-n_val:]
 
     return [x_train, y_train, x_val, y_val]
+
 
 if __name__ == "__main__":
 
@@ -199,28 +207,29 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 2000
+    num_examples = 10000
     dim = 200
-    num_words = 10
+    num_words = 5
+    reduction_size = 400
 
     training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
     truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
-                            w=num_words, valPercent=0.2)
+                            w=num_words, valPercent=0.2, reduction_size=reduction_size)
     print "data loaded!"
 
     results = []
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[1000, 4096],
+                              hidden_units=[300, 300, 400],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
-                              n_epochs=20,
+                              n_epochs=100,
                               batch_size=100,
-                              dropout_rate=[0.5],
+                              dropout_rate=[0.3, 0.5],
                               load_model=load_model)
         print "cv: " + str(i) + ", perf: " + str(perf)
         results.append(perf)
