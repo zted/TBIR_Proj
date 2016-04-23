@@ -125,7 +125,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
         having to store it in memory
         :param fn: fn to create index from
         :param skip_header:
-        :param limit: the number of words we create indices for
+        :param num_examples: the number of words we create indices for
         :return:
         """
         myDict = {}
@@ -174,7 +174,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
         pca_file = '../data/pca_{0}.txt'.format(reduction_size)
         pca_reduction = np.fromfile(pca_file, dtype=np.float32, count=-1, sep=' ')
         pca_reduction = pca_reduction.reshape(4096, reduction_size)
-        y_all = normalize(np.matmul(y_all, pca_reduction))
+        y_all = normalize(np.dot(y_all, pca_reduction))
     print(y_all.shape)
 
     np.random.seed(3453)
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     num_examples = 10000
     dim = 200
     num_words = 5
-    reduction_size = 400
+    reduction_size = 200
 
     training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
     truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[300, 300, 400],
+                              hidden_units=[200, 200, 200],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
                               n_epochs=100,
