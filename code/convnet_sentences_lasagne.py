@@ -6,7 +6,6 @@ import lasagne.layers as LL
 import sys
 from itertools import islice
 from sklearn.preprocessing import normalize
-from lasagne.updates import sgd, apply_momentum
 
 warnings.filterwarnings("ignore")
 
@@ -126,17 +125,20 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
         :return:
         """
         myDict = {}
+        word_vectors = []
         count = 0
         for line in buffered_fetch(fn):
-            count += 1
             if count > limit:
                 break
             if skip_header:
                 skip_header = False
                 continue
-            token = line.split(' ')[0]
+            splitup = line.rstrip('\n').split(' ')
+            token = splitup[0]
+            word_vectors.append(np.array(splitup[1:]))
             myDict[token] = count
-        return myDict
+            count += 1
+        return myDict, word_vectors
 
     def get_vector(fn, line_number, offset=0):
         with open(fn, 'r') as f:
@@ -154,12 +156,12 @@ def load_my_data(xfile, yfile, n, d, w, valPercent):
 
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
-        word_idx = create_indices_for_vectors(embeddings_file)
+        word_idx, word_vectors = create_indices_for_vectors(embeddings_file)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
-                words = line.rstrip('\n').split(" ")
+                words = line.rstrip('\n').split(' ')
                 for m, w in enumerate(words):
-                    newVec[n][0][m] = get_vector(embeddings_file, word_idx[w])
+                    newVec[n][0][m] = word_vectors[word_idx[w]]
         return newVec
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
@@ -197,9 +199,9 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 200
+    num_examples = 2000
     dim = 200
-    num_words = 5
+    num_words = 10
 
     training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
     truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
@@ -213,7 +215,7 @@ if __name__ == "__main__":
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[400, 4096],
+                              hidden_units=[1000, 4096],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
                               n_epochs=20,
