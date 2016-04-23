@@ -1,6 +1,7 @@
 from itertools import islice
 import numpy as np
 
+
 def buffered_fetch(fn):
     with open(fn, 'r') as f:
         for line in f:
@@ -29,6 +30,8 @@ image_embeddings = '../data/visfeat_reduced_{}.txt'.format(dim)
 image_dict = create_indices_for_vectors(image_embeddings)
 
 indices = np.random.choice(310111, num_examples, False)
+# randomly polls from the training data we have to make a test set
+# first we create random indices
 training_file = '../data/train_data.txt'
 testing_file_x = '../data/test_{}x.txt'.format(num_examples)
 testing_file_y = '../data/test_{}y.txt'.format(num_examples)
@@ -47,8 +50,11 @@ with open(training_file, 'r') as f:
             first = False
             continue
         if n-1 == indices[count]:
+            # we get the lines at the random indices and get the image ID for that line
             image_id = line.split(' ')[0]
             idx = image_dict[image_id]
             fo_x.write(line)
+            # write that line to a file
             fo_y.write(get_line(image_embeddings, idx))
+            # write the corresponding line in the image embeddings to a file too
             count += 1
