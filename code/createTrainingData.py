@@ -59,26 +59,36 @@ num_words = 5
 # least number of words needed for each example
 number_training_examples = 2000
 
-
-IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
-TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
-
-# IMAGE_EMBEDDINGS = '/home/tedz/Desktop/schooldocs/Info Retrieval/' \
-#                    'CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-# WORD_EMBEDDINGS = '/home/tedz/Desktop/schooldocs/Info Retrieval/proj/data/glove.6B/glove.6B.200d.txt'
-# TEXT_TRAINING = '/home/tedz/Desktop/schooldocs/Info Retrieval/CLEF/Features/Textual/train_data.txt'
-
-image_index = create_indices_for_vectors(IMAGE_EMBEDDINGS,
-                                         skip_header=True)
-word_index = create_indices_for_vectors(WORD_EMBEDDINGS,
-                                        skip_header=True)
-
-print('Time taken to create word and image indices: ' + str(time.time() - t0))
-
 ignore_words = stopwords.words('english')
 lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
+
+IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
+image_index = create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
+
+# CONCRETENESS = '../data/Concreteness_ratings.txt'
+# concrete_words = set([])
+# with open(CONCRETENESS, 'r') as f:
+#     for n, line in enumerate(f):
+#         if n == 0: continue
+#         line = line.split("\t")
+#         word = line[0]
+#         score = float(line[2])
+#         if score < 3.0:
+#             # concreteness threshold that we accept
+#             continue
+#         concrete_words.add(word)
+#         concrete_words.add(stemmer.stem(word))
+
+WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
+words_we_have = set([])
+with open(WORD_EMBEDDINGS, 'r') as f:
+    for n, line in enumerate(f):
+        if n == 0: continue
+        token = line.split(' ')[0]
+        words_we_have.add(token)
+
+print('Time taken to load data: ' + str(time.time() - t0))
 
 number_examples_processed = 0
 output_x = '../results/{0}n_{1}w_training_x.txt' \
@@ -89,21 +99,7 @@ fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
 unique_words = set([])
-
-CONCRETENESS = '../data/Concreteness_ratings.txt'
-concrete_words = set([])
-with open(CONCRETENESS, 'r') as f:
-    for n, line in enumerate(f):
-        if n == 0: continue
-        line = line.split("\t")
-        word = line[0]
-        score = float(line[2])
-        if score < 3.0:
-            # concreteness threshold that we accept
-            continue
-        concrete_words.add(word)
-        concrete_words.add(stemmer.stem(word))
-
+TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
 with open(TEXT_TRAINING, 'r') as f:
     for line in f:
         stemmedWords = set([])
@@ -124,7 +120,7 @@ with open(TEXT_TRAINING, 'r') as f:
             # take out the apostrophe from words first
 
             if (word in ignore_words) or (len(word) <= 3):
-            # ignore the stopwords
+                # ignore the stopwords
                 continue
 
             if not word.isalpha():
@@ -149,26 +145,19 @@ with open(TEXT_TRAINING, 'r') as f:
                 # we've already used a variant of the word in this example
                 continue
 
-            if (not lemma in concrete_words) and (not stem in concrete_words):
-                # if word does not meet a certain concrete score or doesn't exist
-                # in concreteness file, we skip it
-                continue
+            # if (not lemma in concrete_words) and (not stem in concrete_words):
+            #     # if word does not meet a certain concrete score or doesn't exist
+            #     # in concreteness file, we skip it
+            #     continue
 
-            try:
-                index = word_index[word]
+            if word in words_we_have:
                 usedWords.append(word)
-            except KeyError:
-
-                try:
-                    index = word_index[lemma]
-                    usedWords.append(lemma)
-                except KeyError:
-
-                    try:
-                        index = word_index[stem]
-                        usedWords.append(stem)
-                    except KeyError as e:
-                        continue
+            elif lemma in words_we_have:
+                usedWords.append(lemma)
+            elif stem in words_we_have:
+                usedWords.append(stem)
+            else:
+                continue
 
             stemmedWords.add(stem)
             count += 1
