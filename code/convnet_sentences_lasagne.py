@@ -4,8 +4,8 @@ from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
 import sys
-from itertools import islice
 from sklearn.preprocessing import normalize
+import helper_fxns as hf
 
 warnings.filterwarnings("ignore")
 
@@ -113,44 +113,6 @@ def train_conv_net(datasets,
 
 
 def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
-    def buffered_fetch(fn):
-        with open(fn, 'r') as f:
-            for line in f:
-                yield line
-
-    def create_indices_for_vectors(fn, skip_header=False):
-        """
-        creates a mapping from the first word on each line to the line number
-        useful for retrieving embeddings later for a given word, instead of
-        having to store it in memory
-        :param fn: fn to create index from
-        :param skip_header:
-        :param num_examples: the number of words we create indices for
-        :return:
-        """
-        myDict = {}
-        word_vectors = []
-        count = 0
-        for line in buffered_fetch(fn):
-            if skip_header:
-                skip_header = False
-                continue
-            splitup = line.rstrip('\n').split(' ')
-            token = splitup[0]
-            word_vectors.append(np.array(splitup[1:], dtype=np.float32))
-            myDict[token] = count
-            count += 1
-        return myDict, word_vectors
-
-    def get_vector(fn, line_number, offset=0):
-        with open(fn, 'r') as f:
-            line = list(islice(f, line_number - 1, line_number))[0]
-            # islice does not open the entire fn, making it much more
-            # memory efficient. the +1 and +2 is because index starts at 0
-        v = line.rstrip('\n').split(' ')[1 + offset:]
-        # offset needed because there may be spaces or other characters
-        # after the first word, but we only want to obtain vectors
-        return np.array(list(map(float, v)), dtype=np.float32)
 
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
@@ -158,7 +120,8 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
 
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
-        word_idx, word_vectors = create_indices_for_vectors(embeddings_file, skip_header=True)
+        word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file,
+                                                               skip_header=True, return_vectors=True)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 words = line.rstrip('\n').split(' ')

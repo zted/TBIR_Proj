@@ -1,51 +1,9 @@
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
-from itertools import islice
+import helper_fxns as hf
 import numpy as np
 import time
-
-
-def buffered_fetch(fn):
-    with open(fn, 'r') as f:
-        for line in f:
-            yield line
-
-
-def create_indices_for_vectors(fn, skip_header=False, limit=10000000):
-    """
-    creates a mapping from the first word on each line to the line number
-    useful for retrieving embeddings later for a given word, instead of
-    having to store it in memory
-    :param fn: fn to create index from
-    :param skip_header:
-    :param limit: the number of words we create indices for
-    :return:
-    """
-    myDict = {}
-    count = 0
-    for line in buffered_fetch(fn):
-        count += 1
-        if count > limit:
-            break
-        if skip_header:
-            skip_header = False
-            continue
-        token = line.split(' ')[0]
-        myDict[token] = count
-    return myDict
-
-
-def get_vector(fn, line_number, offset=0):
-    with open(fn, 'r') as f:
-        line = list(islice(f, line_number - 1, line_number))[0]
-        # islice does not open the entire fn, making it much more
-        # memory efficient. the +1 and +2 is because index starts at 0
-    v = line.rstrip('\n').split(' ')[1 + offset:]
-    # offset needed because there may be spaces or other characters
-    # after the first word, but we only want to obtain vectors
-    return np.array(list(map(float, v)))
-
 
 t0 = time.time()
 word_dim = 200
@@ -58,7 +16,7 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-image_index = create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
+image_index = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
 
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 words_we_have = set([])
@@ -87,7 +45,7 @@ with open(TEXT_TRAINING, 'r') as f:
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
-        answer_vector = get_vector(IMAGE_EMBEDDINGS, answer_index, offset=1)
+        answer_vector = hf.get_vector(IMAGE_EMBEDDINGS, answer_index, offset=1)
         total_words = int(len(long_string) / 2)
         usedWords = []
         if total_words - 1 <= num_words:

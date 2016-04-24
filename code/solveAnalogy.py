@@ -1,31 +1,14 @@
 import numpy as np
 import time
 import gensim
+import helper_fxns as hf
+from sklearn.preprocessing import normalize
 
 t0 = time.time()
 
-
-def unit_vec(v):
-    mag = np.linalg.norm(v)
-    tempArray = v * 0 if mag == 0 else v / mag
-    return tempArray
-
-
-def fetch_most_similar(vect, mat, model, ignore_word):
-    resultant = vect * np.transpose(mat)
-    index = np.argmax(resultant)
-    word = model.index2word[index]
-    if word == ignore_word:
-        resultant[0, index] = -1000
-        # ^we do argmax again to get second best word, since first best is itself
-        index = np.argmax(resultant)
-        word = model.index2word[index]
-    return word
-
-
 def cos_sim_addition(a, b, c, matrix, model, ignore_word):
     resultant = c + b - a
-    return fetch_most_similar(resultant, matrix, model, ignore_word)
+    return hf.fetch_most_similar(resultant, matrix, model, ignore_word)
 
 
 def cos_sim_direction(a, b, c, matrix, file, ignore_word):
@@ -33,8 +16,8 @@ def cos_sim_direction(a, b, c, matrix, file, ignore_word):
     newMatrix = []
     for r in matrix:
         tempArray = c - np.squeeze(np.asarray(r))
-        newMatrix.append(unit_vec(tempArray))
-    return fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
+        newMatrix.append(normalize(tempArray))
+    return hf.fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
 
 
 def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
