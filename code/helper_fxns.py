@@ -20,7 +20,8 @@ def buffered_fetch(fn):
             yield line
 
 
-def create_indices_for_vectors(fn, skip_header=False, limit=10000000, return_vectors=False):
+def create_indices_for_vectors(fn, skip_header=False, limit=10000000,
+                               return_vectors=False, count_offset=0):
     """
     creates a mapping from the first word on each line to the line number
     useful for retrieving embeddings later for a given word, instead of
@@ -42,8 +43,7 @@ def create_indices_for_vectors(fn, skip_header=False, limit=10000000, return_vec
             continue
         splitup = line.rstrip('\n').split(' ')
         token = splitup[0]
-        myDict[token] = count
-        count += 1
+        myDict[token] = count-count_offset
         if return_vectors:
             word_vectors.append(np.array(splitup[1:], dtype=np.float32))
     return myDict, word_vectors
