@@ -1,7 +1,7 @@
 import numpy as np
 import helper_fxns as hf
 
-dim = 200
+dim = 400
 num_examples = 5
 
 image_embeddings = '../data/visfeat_reduced_{}.txt'.format(dim)

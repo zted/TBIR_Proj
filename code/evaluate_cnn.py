@@ -76,7 +76,7 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 # of = open(outFile, 'w')
-bigMatrix = np.asmatrix(gensim_model.syn0[:])
+bigMatrix = np.array(gensim_model.syn0[:], dtype=np.float32)
 
 CNN_MODEL = '../data/model.npz'
 CNN_predict = init_cnn(CNN_MODEL,

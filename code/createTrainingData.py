@@ -10,7 +10,7 @@ output_dim = 400
 word_dim = 200
 num_words = 5
 # least number of words needed for each example
-number_training_examples = 10000
+number_training_examples = 2000
 
 ignore_words = stopwords.words('english')
 lemmatizer = WordNetLemmatizer()

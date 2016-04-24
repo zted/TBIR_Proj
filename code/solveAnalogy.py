@@ -6,23 +6,33 @@ from sklearn.preprocessing import normalize
 
 t0 = time.time()
 
+
 def cos_sim_addition(a, b, c, matrix, model, ignore_word):
     resultant = c + b - a
     return hf.fetch_most_similar(resultant, matrix, model, ignore_word)
 
 
-def cos_sim_direction(a, b, c, matrix, file, ignore_word):
+def cos_sim_direction(a, b, c, matrix, model, ignore_word):
     resultant = a - b
-    newMatrix = []
-    for r in matrix:
-        tempArray = c - np.squeeze(np.asarray(r))
-        newMatrix.append(normalize(tempArray))
-    return hf.fetch_most_similar(resultant, np.asmatrix(newMatrix), file, ignore_word)
+    mat = normalize(c-matrix)
+    word = hf.fetch_most_similar(resultant, mat, model, ignore_word)
+    return word
 
 
-def cos_sim_multiplication(a, b, c, matrix, file, ignore_word):
-    return
-
+def cos_sim_multiplication(a, b, c, matrix, model, ignore_word):
+    epsi = 0.001
+    dc = (np.dot(matrix, c)+1)/2
+    db = (np.dot(matrix, b)+1)/2
+    da = (np.dot(matrix, a)+1)/2
+    resultant = dc*db/(da + epsi)
+    index = np.argmax(resultant)
+    word = model.index2word[index]
+    if word == ignore_word:
+        resultant[index] = -1000
+        # ^we do argmax again to get second best word, since first best is itself
+        index = np.argmax(resultant)
+        word = model.index2word[index]
+    return word
 
 questionsFile = '../data/questions-words.txt'
 count = 0
@@ -47,8 +57,7 @@ makeLowerCase = True
 
 of = open(outFile, 'w')
 skipFlag = True
-bigMatrix = np.asmatrix(model.syn0[0:vocabLimit])
-unfound_words = set([])
+bigMatrix = np.array(model.syn0[0:vocabLimit], dtype=np.float32)
 
 with open(questionsFile, 'r') as f:
     lines = f.read().splitlines()
@@ -82,7 +91,6 @@ with open(questionsFile, 'r') as f:
             vecC = model[c]
         except KeyError as e:
             # Couldn't retrieved word in analogy question from our embeddings file
-            unfound_words.add(e)
             continue
         hypothesis = cos_sim_addition(vecA, vecB, vecC, bigMatrix, model, c)
         # print(hypothesis)
@@ -100,6 +108,5 @@ with open(questionsFile, 'r') as f:
              .format(recall, n_corr, n_corr + n_incorr))
     of.write('Total recall: {0:.2f} %\n'.format(total_recall))
     t_elapsed = time.time() - t0
-    print("Unfound words: ", unfound_words)
     print("Time Taken: ", t_elapsed)
     of.close()
