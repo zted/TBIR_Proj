@@ -16,7 +16,7 @@ lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
 IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-image_index = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
+image_index, _ = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
 
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 words_we_have = set([])
@@ -36,6 +36,7 @@ output_y = '../results/{0}n_{1}w_training_gt.txt' \
 fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
+image_embeddings_offset = 1
 unique_words = set([])
 TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
 with open(TEXT_TRAINING, 'r') as f:
@@ -45,7 +46,9 @@ with open(TEXT_TRAINING, 'r') as f:
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
-        answer_vector = hf.get_vector(IMAGE_EMBEDDINGS, answer_index, offset=1)
+        answer_line = hf.get_line(IMAGE_EMBEDDINGS, answer_index)
+        answer_vector = answer_line.rstrip('\n').split(' ')[1 + image_embeddings_offset:]
+        answer_vector = np.array(answer_vector, dtype=np.float32)
         total_words = int(len(long_string) / 2)
         usedWords = []
         if total_words - 1 <= num_words:

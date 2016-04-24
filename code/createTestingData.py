@@ -1,33 +1,11 @@
-from itertools import islice
 import numpy as np
-
-
-def buffered_fetch(fn):
-    with open(fn, 'r') as f:
-        for line in f:
-            yield line
-
-
-def create_indices_for_vectors(fn):
-    myDict = {}
-    count = 0
-    for line in buffered_fetch(fn):
-        count += 1
-        token = line.split(' ')[0]
-        myDict[token] = count
-    return myDict
-
-
-def get_line(fn, line_number):
-    with open(fn, 'r') as f:
-        line = list(islice(f, line_number - 1, line_number))[0]
-    return line
+import helper_fxns as hf
 
 dim = 200
 num_examples = 5
 
 image_embeddings = '../data/visfeat_reduced_{}.txt'.format(dim)
-image_dict = create_indices_for_vectors(image_embeddings)
+image_dict, _ = hf.create_indices_for_vectors(image_embeddings)
 
 indices = np.random.choice(310111, num_examples, False)
 # randomly polls from the training data we have to make a test set
@@ -55,6 +33,6 @@ with open(training_file, 'r') as f:
             idx = image_dict[image_id]
             fo_x.write(line)
             # write that line to a file
-            fo_y.write(get_line(image_embeddings, idx))
+            fo_y.write(hf.get_line(image_embeddings, idx))
             # write the corresponding line in the image embeddings to a file too
             count += 1

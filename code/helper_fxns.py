@@ -49,12 +49,7 @@ def create_indices_for_vectors(fn, skip_header=False, limit=10000000, return_vec
     return myDict, word_vectors
 
 
-def get_vector(fn, line_number, offset=0):
+def get_line(fn, line_number):
     with open(fn, 'r') as f:
         line = list(islice(f, line_number - 1, line_number))[0]
-        # islice does not open the entire fn, making it much more
-        # memory efficient. the +1 and +2 is because index starts at 0
-    v = line.rstrip('\n').split(' ')[1 + offset:]
-    # offset needed because there may be spaces or other characters
-    # after the first word, but we only want to obtain vectors
-    return np.array(list(map(float, v)))
+    return line
