@@ -43,7 +43,7 @@ def create_indices_for_vectors(fn, skip_header=False, limit=10000000,
             continue
         splitup = line.rstrip('\n').split(' ')
         token = splitup[0]
-        myDict[token] = count-count_offset
+        myDict[token] = count - count_offset
         if return_vectors:
             word_vectors.append(np.array(splitup[1:], dtype=np.float32))
     return myDict, word_vectors

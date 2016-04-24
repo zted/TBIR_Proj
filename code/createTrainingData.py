@@ -108,7 +108,7 @@ with open(TEXT_TRAINING, 'r') as f:
             number_examples_processed += 1
             if number_examples_processed % (number_training_examples / 10) == 0:
                 print("{} seconds taken to create {} training examples."
-                      .format(time.time()-t0, number_examples_processed))
+                      .format(time.time() - t0, number_examples_processed))
         else:
             continue
 

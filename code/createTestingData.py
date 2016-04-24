@@ -27,7 +27,7 @@ with open(training_file, 'r') as f:
         if first:
             first = False
             continue
-        if n-1 == indices[count]:
+        if n - 1 == indices[count]:
             # we get the lines at the random indices and get the image ID for that line
             image_id = line.split(' ')[0]
             idx = image_dict[image_id]

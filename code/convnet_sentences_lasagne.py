@@ -98,8 +98,8 @@ def train_conv_net(datasets,
             # print(val_output[0])
             # print(y_val[0])
             # The accuracy is the average number of correct predictions
-            val_error = np.mean(L.objectives.squared_error(val_output, y_val))*100
-            train_error = np.mean(L.objectives.squared_error(train_output, current_y_train))*100
+            val_error = np.mean(L.objectives.squared_error(val_output, y_val)) * 100
+            train_error = np.mean(L.objectives.squared_error(train_output, current_y_train)) * 100
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
 
     # Now we save the model
@@ -109,7 +109,6 @@ def train_conv_net(datasets,
 
 
 def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
-
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
