@@ -54,11 +54,12 @@ num_examples = 5
 word_dim = 200
 num_words = 5
 
-TEST_DATA_Y = 'test_{}y.txt'.format(num_examples)
-TEST_DATA_X = '../data/test_{}x.txt'.format(num_examples)
-embeddingsFile = '../data/' + TEST_DATA_Y
-outFile = '../results/test_results/accuracy_' + TEST_DATA_Y
-gensim_model = gensim.models.Word2Vec.load_word2vec_format(embeddingsFile, binary=False)
+test_y_fn = 'test_y_{}d_{}.txt'.format(word_dim, num_examples)
+TEST_DATA_X = '../data/test_x_{}.txt'.format(num_examples)
+
+TEST_DATA_Y = '../data/' + test_y_fn
+outFile = '../results/test_results/accuracy_' + test_y_fn
+gensim_model = gensim.models.Word2Vec.load_word2vec_format(TEST_DATA_Y, binary=False)
 gensim_model.init_sims(replace=True)  # indicates we're finished training to save ram
 makeLowerCase = True
 
