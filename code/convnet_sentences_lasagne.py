@@ -77,10 +77,6 @@ def train_conv_net(datasets,
     net_output_val = theano.function([l_in.input_var],
                                      LL.get_output(l_output, deterministic=True))
 
-    # x_train, y_train = shared_dataset((x_train, y_train))
-    # x_val, y_val = shared_dataset((x_val, y_val))
-    # note that using shared variables does not work at the moment with L
-
     # Keep track of which batch we're training with
     batch_idx = 0
     epoch = 0
@@ -121,7 +117,9 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
         word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file,
-                                                               skip_header=True, return_vectors=True)
+                                                               skip_header=True,
+                                                               return_vectors=True,
+                                                               count_offset=1)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 words = line.rstrip('\n').split(' ')
@@ -138,7 +136,6 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
         pca_reduction = np.fromfile(pca_file, dtype=np.float32, count=-1, sep=' ')
         pca_reduction = pca_reduction.reshape(4096, reduction_size)
         y_all = normalize(np.dot(y_all, pca_reduction))
-    print(y_all.shape)
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -170,7 +167,7 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 10000
+    num_examples = 2000
     dim = 200
     num_words = 5
     reduction_size = 200
@@ -190,7 +187,7 @@ if __name__ == "__main__":
                               hidden_units=[200, 200, 200],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
-                              n_epochs=100,
+                              n_epochs=50,
                               batch_size=100,
                               dropout_rate=[0.3, 0.5],
                               load_model=load_model)
