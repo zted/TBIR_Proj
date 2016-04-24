@@ -11,8 +11,8 @@ indices = np.random.choice(310111, num_examples, False)
 # randomly polls from the training data we have to make a test set
 # first we create random indices
 training_file = '../data/train_data.txt'
-testing_file_x = '../data/test_{}x.txt'.format(num_examples)
-testing_file_y = '../data/test_{}y.txt'.format(num_examples)
+testing_file_y = '../data/test_y_{}d_{}.txt'.format(dim, num_examples)
+testing_file_x = '../data/test_x_{}.txt'.format(num_examples)
 indices.sort()
 count = 1
 first = True
