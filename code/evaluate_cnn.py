@@ -50,11 +50,13 @@ def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_w
 
     return net_output
 
+
 num_examples = 5
 word_dim = 200
 num_words = 5
+output_dim = 400
 
-test_y_fn = 'test_y_{}d_{}.txt'.format(word_dim, num_examples)
+test_y_fn = 'test_y_{}d_{}.txt'.format(output_dim, num_examples)
 TEST_DATA_X = '../data/test_x_{}.txt'.format(num_examples)
 
 TEST_DATA_Y = '../data/' + test_y_fn
@@ -78,7 +80,7 @@ bigMatrix = np.asmatrix(gensim_model.syn0[:])
 
 CNN_MODEL = '../data/model.npz'
 CNN_predict = init_cnn(CNN_MODEL,
-                       hidden_units=[200, 200, 200],
+                       hidden_units=[300, 300, 400],
                        num_filters=[32, 32, 32],
                        filter_hs=[2, 3, 4],
                        dropout_rate=[0.3, 0.5],
@@ -154,7 +156,7 @@ with open(TEST_DATA_X, 'r') as f:
             answers.append(answer)
             testdata.append(total_example_vec)
 
-    input_vector = np.array(testdata, dtype=np.float32).reshape(len(testdata),1,num_words,word_dim)
+    input_vector = np.array(testdata, dtype=np.float32).reshape(len(testdata), 1, num_words, word_dim)
     output_vector = CNN_predict(input_vector)
     for n, vec in enumerate(output_vector):
         hypothesis = hf.fetch_most_similar(vec, bigMatrix, gensim_model)
