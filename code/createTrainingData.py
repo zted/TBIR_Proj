@@ -6,17 +6,18 @@ import numpy as np
 import time
 
 t0 = time.time()
+output_dim = 400
 word_dim = 200
 num_words = 5
 # least number of words needed for each example
-number_training_examples = 2000
+number_training_examples = 10000
 
 ignore_words = stopwords.words('english')
 lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
-IMAGE_EMBEDDINGS = '../../CLEF/Features/Visual/scaleconcept16_data_visual_vgg16-relu7.dfeat'
-image_index, _ = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, skip_header=True)
+IMAGE_EMBEDDINGS = '../data/visfeat_reduced_{}.txt'.format(output_dim)
+image_index, img_vectors = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, return_vectors=True)
 
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 words_we_have = set([])
@@ -27,6 +28,7 @@ with open(WORD_EMBEDDINGS, 'r') as f:
         words_we_have.add(token)
 
 print('Time taken to load data: ' + str(time.time() - t0))
+t0 = time.time()
 
 number_examples_processed = 0
 output_x = '../results/{0}n_{1}w_training_x.txt' \
@@ -37,7 +39,6 @@ fx = open(output_x, 'w')
 fy = open(output_y, 'w')
 
 image_embeddings_offset = 1
-unique_words = set([])
 TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
 with open(TEXT_TRAINING, 'r') as f:
     for line in f:
@@ -46,9 +47,7 @@ with open(TEXT_TRAINING, 'r') as f:
         long_string = line.split(' ')
         answer = long_string[0]
         answer_index = image_index[answer]
-        answer_line = hf.get_line(IMAGE_EMBEDDINGS, answer_index)
-        answer_vector = answer_line.rstrip('\n').split(' ')[1 + image_embeddings_offset:]
-        answer_vector = np.array(answer_vector, dtype=np.float32)
+        answer_vector = img_vectors[answer_index]
         total_words = int(len(long_string) / 2)
         usedWords = []
         if total_words - 1 <= num_words:
@@ -103,21 +102,18 @@ with open(TEXT_TRAINING, 'r') as f:
                 break
 
         if count >= num_words:
-            # print(usedWords)
-            for u in usedWords:
-                unique_words.add(u)
             answer_vector = [str(i) for i in answer_vector.tolist()]
             fx.write(' '.join(usedWords) + '\n')
             fy.write(' '.join(answer_vector) + '\n')
             number_examples_processed += 1
             if number_examples_processed % (number_training_examples / 10) == 0:
-                print(str(number_examples_processed) + ' examples processed')
+                print("{} seconds taken to create {} training examples."
+                      .format(time.time()-t0, number_examples_processed))
         else:
             continue
 
         if number_examples_processed >= number_training_examples:
             break
 
-print(len(unique_words))
 fx.close()
 fy.close()
