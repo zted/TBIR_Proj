@@ -167,10 +167,10 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 2000
+    num_examples = 10000
     dim = 200
     num_words = 5
-    reduction_size = 200
+    reduction_size = 400
 
     training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
     truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[200, 200, 200],
+                              hidden_units=[300, 300, 400],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
                               n_epochs=50,
