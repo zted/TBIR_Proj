@@ -37,10 +37,10 @@ def cos_sim_multiplication(a, b, c, matrix, model, ignore_word):
 def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
     skipFlag = True
     count = 0
-    total_corr = 0
-    total_incorr = 0
-    n_corr = 0
-    n_incorr = 0
+    total_corr = 0.
+    total_incorr = 0.
+    n_corr = 0.
+    n_incorr = 0.
     bigMatrix = np.array(gsm_mod.syn0[0:vocabLimit], dtype=np.float32)
     outFile = open(ofile, 'w')
     with open(qfile, 'r') as f:
