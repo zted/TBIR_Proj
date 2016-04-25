@@ -37,10 +37,10 @@ def cos_sim_multiplication(a, b, c, matrix, model, ignore_word):
 def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
     skipFlag = True
     count = 0
-    total_corr = 0.
-    total_incorr = 0.
-    n_corr = 0.
-    n_incorr = 0.
+    total_corr = 0
+    total_incorr = 0
+    n_corr = 0
+    n_incorr = 0
     bigMatrix = np.array(gsm_mod.syn0[0:vocabLimit], dtype=np.float32)
     outFile = open(ofile, 'w')
     with open(qfile, 'r') as f:
@@ -55,8 +55,8 @@ def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
                     outFile.write(' '.join(words[1:]) + ':\n')
                     skipFlag = False
                     continue
-                recall = n_corr * 100 / (n_corr + n_incorr)
-                total_recall = total_corr * 100 / (total_corr + total_incorr)
+                recall = float(n_corr * 100) / (n_corr + n_incorr)
+                total_recall = float(total_corr * 100) / (total_corr + total_incorr)
                 outFile.write('RECALL: {0:.2f} %  ({1:d} / {2:d})\n'
                               .format(recall, n_corr, n_corr + n_incorr))
                 outFile.write('Total recall: {0:.2f} %\n'.format(total_recall))
@@ -86,8 +86,8 @@ def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
                 total_incorr += 1
                 # if count > 5:
                 #     break
-        recall = n_corr * 100 / (n_corr + n_incorr)
-        total_recall = total_corr * 100 / (total_corr + total_incorr)
+        recall = float(n_corr * 100) / (n_corr + n_incorr)
+        total_recall = float(total_corr * 100) / (total_corr + total_incorr)
         outFile.write('RECALL: {0:.2f} %  ({1:d} / {2:d})\n'
                       .format(recall, n_corr, n_corr + n_incorr))
         outFile.write('Total recall: {0:.2f} %\n'.format(total_recall))
