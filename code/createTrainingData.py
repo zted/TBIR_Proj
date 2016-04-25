@@ -3,7 +3,6 @@ from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
 import sys
 import helper_fxns as hf
-import numpy as np
 import time
 
 
@@ -32,8 +31,8 @@ def createTrainingExamples(num_training, num_words, output_dim):
     number_examples_processed = 0
     output_x = '../results/{0}n_{1}w_training_x.txt' \
         .format(num_training, num_words)
-    output_y = '../results/{0}n_{1}w_training_gt.txt' \
-        .format(num_training, num_words)
+    output_y = '../results/{0}n_{1}w_{2}d_training_gt.txt' \
+        .format(num_training, num_words, output_dim)
     fx = open(output_x, 'w')
     fy = open(output_y, 'w')
 
@@ -41,7 +40,6 @@ def createTrainingExamples(num_training, num_words, output_dim):
     with open(TEXT_TRAINING, 'r') as f:
         for line in f:
             stemmedWords = set([])
-            newArray = np.empty([num_words, word_dim])
             long_string = line.split(' ')
             answer = long_string[0]
             answer_index = image_index[answer]
