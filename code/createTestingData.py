@@ -22,7 +22,7 @@ def createTestingExamples(num_examples, dim):
 
     with open(training_file, 'r') as f:
         for n, line in enumerate(f):
-            if count >= num_examples:
+            if count > num_examples:
                 break
             if first:
                 first = False
