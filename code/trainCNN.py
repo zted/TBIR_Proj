@@ -98,8 +98,8 @@ def train_conv_net(datasets,
             # print(val_output[0])
             # print(y_val[0])
             # The accuracy is the average number of correct predictions
-            val_error = np.mean(L.objectives.squared_error(val_output, y_val)) * 100
-            train_error = np.mean(L.objectives.squared_error(train_output, current_y_train)) * 100
+            val_error = np.mean(L.objectives.squared_error(val_output, y_val)) * len(y_val[0])
+            train_error = np.mean(L.objectives.squared_error(train_output, current_y_train)) * len(y_val[0])
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
 
     # Now we save the model
@@ -108,7 +108,7 @@ def train_conv_net(datasets,
     return val_error
 
 
-def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
+def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
@@ -128,13 +128,7 @@ def load_my_data(xfile, yfile, n, d, w, valPercent, reduction_size=None):
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
     x_all = load_vectors(xfile, WORD_EMBEDDINGS, n, w, d)
-    y_all = load_labels(yfile, n, dim=4096)
-
-    if reduction_size is not None:
-        pca_file = '../data/pca_{0}.txt'.format(reduction_size)
-        pca_reduction = np.fromfile(pca_file, dtype=np.float32, count=-1, sep=' ')
-        pca_reduction = pca_reduction.reshape(4096, reduction_size)
-        y_all = normalize(np.dot(y_all, pca_reduction))
+    y_all = normalize(load_labels(yfile, n, output_d))
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
@@ -166,27 +160,27 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    num_examples = 10000
+    num_examples = 5000
     dim = 200
     num_words = 5
-    reduction_size = 400
+    output_dim = 200
 
     training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
-    truths_file = '../data/{0}n_{1}w_training_gt.txt'.format(num_examples, num_words)
+    truths_file = '../data/{0}n_{1}w_{2}d_training_gt.txt'.format(num_examples, num_words, output_dim)
 
     print "loading data...",
     datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
-                            w=num_words, valPercent=0.2, reduction_size=reduction_size)
+                            w=num_words, output_d=output_dim, valPercent=0.2)
     print "data loaded!"
 
     results = []
     r = range(0, 10)
     for i in r:
         perf = train_conv_net(datasets,
-                              hidden_units=[300, 300, 400],
+                              hidden_units=[200, 200, output_dim],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
-                              n_epochs=50,
+                              n_epochs=20,
                               batch_size=100,
                               dropout_rate=[0.3, 0.5],
                               load_model=load_model)
