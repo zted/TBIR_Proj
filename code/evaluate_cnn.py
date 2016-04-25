@@ -51,6 +51,16 @@ def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_w
     return net_output
 
 
+def fetch_top_k(vect, mat, model, k):
+    resultant = np.dot(mat, vect)
+    arglist = np.argsort(resultant)
+    arglist = arglist[-1:(-1-k):-1]
+    wordlist = []
+    for i in arglist:
+        wordlist.append(model.index2word[i])
+    return wordlist
+
+
 num_examples = 5
 word_dim = 200
 num_words = 5
@@ -159,8 +169,8 @@ with open(TEST_DATA_X, 'r') as f:
     input_vector = np.array(testdata, dtype=np.float32).reshape(len(testdata), 1, num_words, word_dim)
     output_vector = CNN_predict(input_vector)
     for n, vec in enumerate(output_vector):
-        hypothesis = hf.fetch_most_similar(vec, bigMatrix, gensim_model)
-        if hypothesis == answers[n]:
+        hypothesis = fetch_top_k(vec, bigMatrix, gensim_model, 10)
+        if answers[n] in hypothesis:
             print('guessed:{}, true value: {}'.format(hypothesis, answers[n]))
             print('Correct answer!')
             n_corr += 1
