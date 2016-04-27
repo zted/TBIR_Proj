@@ -4,7 +4,7 @@ import sys
 
 
 def createTestingExamples(num_examples, dim):
-    image_embeddings = '../data/visfeat_reduced_{}.txt'.format(dim)
+    image_embeddings = '../data/visfeat_train_reduced_tr{}.txt'.format(dim)
     image_dict, _ = hf.create_indices_for_vectors(image_embeddings)
 
     indices = np.random.choice(310111, num_examples, False)
