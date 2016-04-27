@@ -34,7 +34,8 @@ def cos_sim_multiplication(a, b, c, matrix, model, ignore_word):
     return word
 
 
-def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
+def analogy_solver(qfile, ofile, gensim_model,
+                   analogy_model, lowercase, vocabLimit):
     skipFlag = True
     count = 0
     total_corr = 0
@@ -76,7 +77,7 @@ def analogy_solver(qfile, ofile, gensim_model, lowercase, vocabLimit):
             except KeyError as e:
                 # Couldn't retrieved word in analogy question from our embeddings file
                 continue
-            hypothesis = a_model(vecA, vecB, vecC, bigMatrix, gensim_model, c)
+            hypothesis = analogy_model(vecA, vecB, vecC, bigMatrix, gensim_model, c)
             # print(hypothesis)
             if hypothesis == answer:
                 n_corr += 1
@@ -139,4 +140,4 @@ if __name__ == "__main__":
     # gsm_mod.init_sims(replace=True)
     # makeLowerCase = False
 
-    analogy_solver(questionsFile, outFile, gsm_mod, makeLowerCase, vocabLimit)
+    analogy_solver(questionsFile, outFile, gsm_mod, a_model, makeLowerCase, vocabLimit)

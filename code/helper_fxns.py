@@ -7,7 +7,7 @@ def fetch_most_similar(vect, mat, model, ignore_word=None):
     index = np.argmax(resultant)
     word = model.index2word[index]
     if word == ignore_word:
-        resultant[0] = -1000
+        resultant[index] = -1000
         # ^we do argmax again to get second best word, since first best is itself
         index = np.argmax(resultant)
         word = model.index2word[index]
