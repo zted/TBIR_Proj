@@ -88,7 +88,7 @@ stemmer = SnowballStemmer('english')
 # of = open(outFile, 'w')
 bigMatrix = np.array(gensim_model.syn0[:], dtype=np.float32)
 
-CNN_MODEL = '../data/model.npz'
+CNN_MODEL = '../data/golden_model.npz'
 CNN_predict = init_cnn(CNN_MODEL,
                        hidden_units=[300, 300, 400],
                        num_filters=[32, 32, 32],
@@ -97,8 +97,8 @@ CNN_predict = init_cnn(CNN_MODEL,
                        n_words=num_words,
                        n_dim=word_dim)
 
-answers = []
-testdata = []
+y = []
+x = []
 with open(TEST_DATA_X, 'r') as f:
     for line in f:
         stemmedWords = set([])
@@ -163,17 +163,36 @@ with open(TEST_DATA_X, 'r') as f:
                 break
 
         if count >= num_words:
-            answers.append(answer)
-            testdata.append(total_example_vec)
+            y.append(answer)
+            x.append(total_example_vec)
 
-    input_vector = np.array(testdata, dtype=np.float32).reshape(len(testdata), 1, num_words, word_dim)
-    output_vector = CNN_predict(input_vector)
-    for n, vec in enumerate(output_vector):
-        hypothesis = fetch_top_k(vec, bigMatrix, gensim_model, 10)
-        if answers[n] in hypothesis:
-            print('guessed:{}, true value: {}'.format(hypothesis, answers[n]))
-            print('Correct answer!')
-            n_corr += 1
-        else:
-            n_incorr += 1
+    # dividing test data into chunks for evaluation
+    batches_x = []
+    batches_y = []
+    batch_num = 0
+    batch_size = 10
+    num_batches = len(x) / 10
+    extra_batch = len(x) % 10
+    for bn in range(num_batches):
+        batches_x.append(x[bn * batch_size:(bn + 1) * batch_size])
+        batches_y.append(y[bn * batch_size:(bn + 1) * batch_size])
+
+    if extra_batch != 0:
+        batches_x.append(x[num_batches*batch_size:])
+        batches_y.append(y[num_batches*batch_size:])
+        num_batches += 1
+
+    for i in range(num_batches):
+        current_x = batches_x[i]
+        current_y = batches_y[i]
+        input_vector = np.array(current_x, dtype=np.float32).reshape(len(current_x), 1, num_words, word_dim)
+        output_vector = CNN_predict(input_vector)
+        for n, vec in enumerate(output_vector):
+            hypothesis = fetch_top_k(vec, bigMatrix, gensim_model, k=10)
+            if current_y[n] in hypothesis:
+                print('Correct answer!')
+                n_corr += 1
+            else:
+                n_incorr += 1
+        print('Next batch')
     print('{} wrong and {} right!'.format(n_incorr, n_corr))
