@@ -14,8 +14,9 @@ def createTrainingExamples(num_training, num_words, output_dim):
     word_dim = 200
     # going to 300 doesn't perform better, 100 performs worse
 
-    IMAGE_EMBEDDINGS = '../data/visfeat_reduced_{}.txt'.format(output_dim)
-    image_index, img_vectors = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS, return_vectors=True)
+    IMAGE_EMBEDDINGS = '../data/visfeat_train_reduced_{}.txt'.format(output_dim)
+    image_index, img_vectors = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS,
+                                                             return_vectors=True)
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
     words_we_have = set([])
@@ -36,7 +37,7 @@ def createTrainingExamples(num_training, num_words, output_dim):
     fx = open(output_x, 'w')
     fy = open(output_y, 'w')
 
-    TEXT_TRAINING = '../../CLEF/Features/Textual/train_data.txt'
+    TEXT_TRAINING = '../data/train_data.txt'
     with open(TEXT_TRAINING, 'r') as f:
         for line in f:
             stemmedWords = set([])

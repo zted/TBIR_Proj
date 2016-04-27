@@ -20,7 +20,7 @@ def buffered_fetch(fn):
             yield line
 
 
-def create_indices_for_vectors(fn, skip_header=False, limit=10000000,
+def create_indices_for_vectors(fn, limit=10000000,
                                return_vectors=False, count_offset=0):
     """
     creates a mapping from the first word on each line to the line number
@@ -32,20 +32,23 @@ def create_indices_for_vectors(fn, skip_header=False, limit=10000000,
     :return:
     """
     myDict = {}
-    word_vectors = []
     count = 0
+    first = True
     for line in buffered_fetch(fn):
         count += 1
         if count > limit:
             break
-        if skip_header:
-            skip_header = False
+        if first:
+            vocabsize = int(line.split(' ')[0])
+            dim = int(line.rstrip('\n').split(' ')[1])
+            word_vectors = np.empty([vocabsize, dim])
+            first = False
             continue
         splitup = line.rstrip('\n').split(' ')
         token = splitup[0]
         myDict[token] = count - count_offset
         if return_vectors:
-            word_vectors.append(np.array(splitup[1:], dtype=np.float32))
+            word_vectors[count-2] = np.array(splitup[1:], dtype=np.float32)
     return myDict, word_vectors
 
 

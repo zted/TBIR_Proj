@@ -51,26 +51,21 @@ def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_w
     return net_output
 
 
-def fetch_top_k(vect, mat, model, k):
+def fetch_top_k(vect, mat, k):
     resultant = np.dot(mat, vect)
     arglist = np.argsort(resultant)
     arglist = arglist[-1:(-1-k):-1]
-    wordlist = []
-    for i in arglist:
-        wordlist.append(model.index2word[i])
-    return wordlist
+    return arglist, resultant
 
 
-num_examples = 10000
 word_dim = 200
 num_words = 5
 output_dim = 200
 
-test_y_fn = 'test_y_{}d_{}.txt'.format(output_dim, num_examples)
-TEST_DATA_X = '../data/test_x_{}.txt'.format(num_examples)
+TEST_DATA_X = '../data/test_data_students_mini.txt'
+TEST_DATA_Y = '../data/visfeat_test_reduced_{}.txt'.format(output_dim)
 
-TEST_DATA_Y = '../data/' + test_y_fn
-outFile = '../results/test_results/accuracy_' + test_y_fn
+outFile = '../results/rank_predictions.txt'
 gensim_model = gensim.models.Word2Vec.load_word2vec_format(TEST_DATA_Y, binary=False)
 gensim_model.init_sims(replace=True)  # indicates we're finished training to save ram
 makeLowerCase = True
@@ -78,19 +73,17 @@ makeLowerCase = True
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 word_idx, _ = hf.create_indices_for_vectors(WORD_EMBEDDINGS)
 count = 0
-n_corr = 0
-n_incorr = 0
 
 ignore_words = stopwords.words('english')
 lemmatizer = WordNetLemmatizer()
 stemmer = SnowballStemmer('english')
 
-# of = open(outFile, 'w')
+out_f = open(outFile, 'w')
 bigMatrix = np.array(gensim_model.syn0[:], dtype=np.float32)
 
 CNN_MODEL = '../data/golden_model.npz'
 CNN_predict = init_cnn(CNN_MODEL,
-                       hidden_units=[300, 300, 400],
+                       hidden_units=[200, 200, 200],
                        num_filters=[32, 32, 32],
                        filter_hs=[2, 3, 4],
                        dropout_rate=[0.3, 0.5],
@@ -101,10 +94,10 @@ y = []
 x = []
 with open(TEST_DATA_X, 'r') as f:
     for line in f:
+        skippedwords = []
         stemmedWords = set([])
         newArray = np.empty([num_words, word_dim])
         long_string = line.split(' ')
-        answer = long_string[0]
         total_words = int(len(long_string) / 2)
         total_example_vec = np.empty([num_words, word_dim], dtype=np.float32)
         if total_words - 1 <= num_words:
@@ -118,6 +111,7 @@ with open(TEST_DATA_X, 'r') as f:
 
             if (word in ignore_words) or (len(word) <= 3):
                 # ignore the stopwords
+                skippedwords.append(word)
                 continue
 
             if not word.isalpha():
@@ -162,37 +156,32 @@ with open(TEST_DATA_X, 'r') as f:
                 # we've got enough words, move on to the next example!
                 break
 
-        if count >= num_words:
-            y.append(answer)
-            x.append(total_example_vec)
+        x.append(total_example_vec)
 
     # dividing test data into chunks for evaluation
     batches_x = []
-    batches_y = []
     batch_num = 0
     batch_size = 10
     num_batches = len(x) / 10
     extra_batch = len(x) % 10
     for bn in range(num_batches):
         batches_x.append(x[bn * batch_size:(bn + 1) * batch_size])
-        batches_y.append(y[bn * batch_size:(bn + 1) * batch_size])
 
     if extra_batch != 0:
         batches_x.append(x[num_batches*batch_size:])
-        batches_y.append(y[num_batches*batch_size:])
         num_batches += 1
 
     for i in range(num_batches):
         current_x = batches_x[i]
-        current_y = batches_y[i]
         input_vector = np.array(current_x, dtype=np.float32).reshape(len(current_x), 1, num_words, word_dim)
         output_vector = CNN_predict(input_vector)
+
         for n, vec in enumerate(output_vector):
-            hypothesis = fetch_top_k(vec, bigMatrix, gensim_model, k=100)
-            if current_y[n] in hypothesis:
-                print('Correct answer!')
-                n_corr += 1
-            else:
-                n_incorr += 1
+            arglist, resultant = fetch_top_k(vec, bigMatrix, k=100)
+            query_id = i*batch_size+n
+            for j in arglist:
+                docid = gensim_model.index2word[j]
+                cos_score = resultant[j]
+                out_f.write('{} 0  {}  0 {} 0\n'.format(query_id, docid, cos_score))
         print('Next batch')
-    print('{} wrong and {} right!'.format(n_incorr, n_corr))
+    out_f.close()

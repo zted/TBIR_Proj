@@ -115,10 +115,7 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
 
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
-        word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file,
-                                                               skip_header=True,
-                                                               return_vectors=True,
-                                                               count_offset=1)
+        word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file, return_vectors=True, count_offset=1)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 words = line.rstrip('\n').split(' ')
