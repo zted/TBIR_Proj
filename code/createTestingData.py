@@ -1,6 +1,8 @@
-import numpy as np
-import helper_fxns as hf
 import sys
+
+import numpy as np
+
+import helper_fxns as hf
 
 
 def createTestingExamples(num_examples, dim):

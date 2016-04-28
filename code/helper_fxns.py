@@ -2,6 +2,7 @@
 This file contains a few commonly used functions
 """
 from itertools import islice
+
 import numpy as np
 
 

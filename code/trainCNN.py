@@ -4,15 +4,17 @@ Kim's use of CNN for sentence classification.
   Code https://github.com/yoonkim/CNN_sentence
   and paper http://arxiv.org/abs/1408.5882
 """
-import numpy as np
+import sys
 import warnings
+
 import lasagne as L
 import lasagne.layers as LL
-import sys
-from sklearn.preprocessing import normalize
-import helper_fxns as hf
+import numpy as np
 import theano
 import theano.tensor as T
+from sklearn.preprocessing import normalize
+
+import helper_fxns as hf
 
 warnings.filterwarnings("ignore")
 
@@ -25,7 +27,6 @@ def train_conv_net(datasets,
                    n_epochs=25,
                    batch_size=50,
                    load_model=False):
-
     x_train, y_train, x_val, y_val = datasets
 
     # creating filter and pool sizes
@@ -133,6 +134,7 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
     :param valPercent: percentage of training set used for validation
     :return: training and validation data shuffled
     """
+
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
@@ -192,7 +194,6 @@ if __name__ == "__main__":
         print('Loading previously trained model')
     else:
         print('Training fresh model')
-
 
     WORD_DIM = 200
     # dimension of each word embedding

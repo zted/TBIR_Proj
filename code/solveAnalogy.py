@@ -1,9 +1,11 @@
-import numpy as np
-import time
-import gensim
-import helper_fxns as hf
-from sklearn.preprocessing import normalize
 import sys
+import time
+
+import gensim
+import numpy as np
+from sklearn.preprocessing import normalize
+
+import helper_fxns as hf
 
 
 def cos_sim_addition(a, b, c, matrix, model, ignore_word):

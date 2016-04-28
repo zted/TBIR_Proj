@@ -1,13 +1,15 @@
+import sys
+
 import gensim
 import lasagne as L
 import lasagne.layers as LL
+import numpy as np
+import theano
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
-import sys
+
 import helper_fxns as hf
-import numpy as np
-import theano
 
 
 def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_words, n_dim):
@@ -78,7 +80,7 @@ def fetch_top_k(vect, mat, model, k):
     """
     resultant = np.dot(mat, vect)
     arglist = np.argsort(resultant)
-    arglist = arglist[-1:(-1-k):-1]
+    arglist = arglist[-1:(-1 - k):-1]
     wordlist = []
     for i in arglist:
         wordlist.append(model.index2word[i])
@@ -127,7 +129,7 @@ def examples_to_vec(test_file, embeddings_file, num_words, word_dim):
                 try:
                     stem = stemmer.stem(word)
                     lemma = lemmatizer.lemmatize(word)
-                except UnicodeDecodeError as e:
+                except UnicodeDecodeError:
                     continue
 
                 if stem in stemmedWords:
@@ -187,8 +189,8 @@ def eval_cnn(x, y, num_words, word_dim, cnn_output, gsm_model, topk):
         batches_y.append(y[bn * batch_size:(bn + 1) * batch_size])
 
     if extra_batch != 0:
-        batches_x.append(x[num_batches*batch_size:])
-        batches_y.append(y[num_batches*batch_size:])
+        batches_x.append(x[num_batches * batch_size:])
+        batches_y.append(y[num_batches * batch_size:])
         num_batches += 1
 
     for i in range(num_batches):
