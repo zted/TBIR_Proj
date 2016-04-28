@@ -1,5 +1,4 @@
 import gensim
-from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
 from nltk.corpus import stopwords

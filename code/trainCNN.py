@@ -1,6 +1,5 @@
 import numpy as np
 import warnings
-from conv_net_classes import *
 import lasagne as L
 import lasagne.layers as LL
 import sys
