@@ -155,7 +155,7 @@ if __name__ == "__main__":
         load_model = False
 
     try:
-        num_examples = sys.argv[2]
+        num_examples = int(sys.argv[2])
     except IndexError:
         num_examples = 2000
 
