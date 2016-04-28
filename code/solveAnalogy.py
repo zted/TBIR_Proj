@@ -34,15 +34,26 @@ def cos_sim_multiplication(a, b, c, matrix, model, ignore_word):
     return word
 
 
-def analogy_solver(qfile, ofile, gensim_model,
-                   analogy_model, lowercase, vocabLimit):
+def analogy_solver(qfile, ofile, gensim_model, analogy_model, lowercase, vocabLimit):
+    """
+    solves analogy according to the type of model given
+    :param qfile:
+    :param ofile:
+    :param gensim_model:
+    :param analogy_model:
+    :param lowercase:
+    :param vocabLimit:
+    :return:
+    """
     skipFlag = True
+    # for measuring accuracy
     count = 0
     total_corr = 0
     total_incorr = 0
     n_corr = 0
     n_incorr = 0
     bigMatrix = np.array(gsm_mod.syn0[0:vocabLimit], dtype=np.float32)
+    # obtains the matrix corresponding to all the words
     outFile = open(ofile, 'w')
     with open(qfile, 'r') as f:
         lines = f.read().splitlines()
@@ -51,8 +62,9 @@ def analogy_solver(qfile, ofile, gensim_model,
             if lowercase:
                 words = [w.lower() for w in words]
             if words[0] == ':':
+                # finished solving analogies for a category
                 if skipFlag:
-                    # we don't log the first results
+                    # first encouter of ':' we skip it
                     outFile.write(' '.join(words[1:]) + ':\n')
                     skipFlag = False
                     continue
@@ -71,12 +83,14 @@ def analogy_solver(qfile, ofile, gensim_model,
             answer = words[3]
             count += 1
             try:
+                # get word vectors for the words in the analogy
                 vecA = gensim_model[a]
                 vecB = gensim_model[b]
                 vecC = gensim_model[c]
             except KeyError:
                 # Couldn't retrieved word in analogy question from our embeddings file
                 continue
+            # make a hypothesis based on our analogy model
             hypothesis = analogy_model(vecA, vecB, vecC, bigMatrix, gensim_model, c)
             # print(hypothesis)
             if hypothesis == answer:
@@ -99,7 +113,7 @@ def analogy_solver(qfile, ofile, gensim_model,
 
 
 if __name__ == "__main__":
-
+    # have the option to choose a dimension for glove
     dimension_opt = [50, 100, 200, 300]
     analogy_models = {'addition': cos_sim_addition,
                       'direction': cos_sim_direction,
