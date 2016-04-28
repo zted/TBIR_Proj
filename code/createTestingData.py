@@ -12,7 +12,7 @@ def createTestingExamples(num_examples, dim):
     # first we create random indices
     training_file = '../data/train_data.txt'
     testing_file_y = '../data/test_y_{}d_{}.txt'.format(dim, num_examples)
-    testing_file_x = '../data/test_x_{}.txt'.format(num_examples)
+    testing_file_x = '../data/test_x_{}d_{}.txt'.format(dim, num_examples)
     indices.sort()
     count = 0
     fo_x = open(testing_file_x, 'w')

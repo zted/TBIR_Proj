@@ -67,7 +67,7 @@ num_words = 5
 output_dim = 200
 
 test_y_fn = 'test_y_{}d_{}.txt'.format(output_dim, num_examples)
-TEST_DATA_X = '../data/test_x_{}.txt'.format(num_examples)
+TEST_DATA_X = '../data/test_x_{}d_{}.txt'.format(output_dim, num_examples)
 
 TEST_DATA_Y = '../data/' + test_y_fn
 outFile = '../results/test_results/accuracy_' + test_y_fn

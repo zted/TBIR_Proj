@@ -146,13 +146,13 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
 if __name__ == "__main__":
 
     examples_options = [2000, 10000, 50000, 200000]
-
+    load_model = False
     try:
         load_option = sys.argv[1]
         if load_option == '-load_model':
             load_model = True
     except IndexError:
-        load_model = False
+        pass
 
     try:
         num_examples = int(sys.argv[2])
