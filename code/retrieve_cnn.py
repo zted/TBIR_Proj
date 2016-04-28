@@ -59,11 +59,12 @@ def fetch_top_k(vect, mat, k):
     return arglist, resultant
 
 
-def training_examples_to_vec(test_file, num_words, word_dim):
+def training_examples_to_vec(test_file, embeddings_file, num_words, word_dim):
     ignore_words = stopwords.words('english')
     lemmatizer = WordNetLemmatizer()
     stemmer = SnowballStemmer('english')
     x = []
+    word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file, return_vectors=True)
     with open(test_file, 'r') as f:
         for line in f:
             stemmedWords = set([])
@@ -100,22 +101,21 @@ def training_examples_to_vec(test_file, num_words, word_dim):
                     continue
 
                 try:
-                    lineNum = word_idx[word]
+                    idx_num = word_idx[word]
                 except KeyError:
 
                     try:
-                        lineNum = word_idx[lemma]
+                        idx_num = word_idx[lemma]
                     except KeyError:
 
                         try:
-                            lineNum = word_idx[stem]
+                            idx_num = word_idx[stem]
                         except KeyError:
                             # word simply cannot be found in our embeddings file
                             continue
 
-                wordline = hf.get_line(WORD_EMBEDDINGS, lineNum)
-                word_vec = wordline.rstrip('\n').split(' ')[1:]
-                total_example_vec[count] = np.array(word_vec, dtype=np.float32)
+                word_vec = word_vectors[idx_num]
+                total_example_vec[count] = word_vec
                 stemmedWords.add(stem)
                 count += 1
                 if count >= num_words:
@@ -177,11 +177,9 @@ if __name__ == "__main__":
     makeLowerCase = True
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
-    word_idx, _ = hf.create_indices_for_vectors(WORD_EMBEDDINGS)
-    # TODO: return vectors and move this into the function below
     count = 0
 
-    vec_x = training_examples_to_vec(TEST_DATA_X, num_words, word_dim)
+    vec_x = training_examples_to_vec(TEST_DATA_X, WORD_EMBEDDINGS, num_words, word_dim)
 
     CNN_output = init_cnn(CNN_MODEL,
                           hidden_units=[200, 200, output_dim],

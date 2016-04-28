@@ -20,14 +20,11 @@ def buffered_fetch(fn):
             yield line
 
 
-def create_indices_for_vectors(fn, limit=10000000,
-                               return_vectors=False, count_offset=0):
+def create_indices_for_vectors(fn, limit=10000000, return_vectors=False):
     """
     creates a mapping from the first word on each line to the line number
     in a file, or if we want list of vectors to be returned, the mapped value
     corresponds to the nth vector
-    :param count_offset: if returning a vector, need this offset to correctly
-    place array in the position corresponding to the dictionary value of token
     :param return_vectors: whether or not we want vectors returned
     :param fn: fn to create index from
     :param limit: the number of words we create indices for
@@ -36,6 +33,7 @@ def create_indices_for_vectors(fn, limit=10000000,
     myDict = {}
     count = 0
     first = True
+    count_offset = 2 if return_vectors else 0
     for line in buffered_fetch(fn):
         count += 1
         if count > limit:
@@ -50,7 +48,7 @@ def create_indices_for_vectors(fn, limit=10000000,
         token = splitup[0]
         myDict[token] = count - count_offset
         if return_vectors:
-            word_vectors[count-2] = np.array(splitup[1:], dtype=np.float32)
+            word_vectors[count - count_offset] = np.array(splitup[1:], dtype=np.float32)
     return myDict, word_vectors
 
 

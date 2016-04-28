@@ -16,8 +16,7 @@ def createTrainingExamples(num_training, num_words, output_dim):
 
     IMAGE_EMBEDDINGS = '../data/visfeat_train_reduced_{}.txt'.format(output_dim)
     image_index, img_vectors = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS,
-                                                             return_vectors=True,
-                                                             count_offset=1)
+                                                             return_vectors=True)
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
     words_we_have = set([])
@@ -117,7 +116,7 @@ def createTrainingExamples(num_training, num_words, output_dim):
 
 if __name__ == "__main__":
 
-    num_train_opt = [2000, 5000, 10000, 50000]
+    num_train_opt = [2000, 10000, 50000, 200000]
     num_words_opt = [5, 7, 9]
     output_options = [200, 400]
 

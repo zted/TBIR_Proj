@@ -116,7 +116,7 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
 
     def load_vectors(filename, embeddings_file, n_examples, n_words, dim):
         newVec = np.empty([n_examples, 1, n_words, dim], dtype=np.float32)
-        word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file, return_vectors=True, count_offset=1)
+        word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file, return_vectors=True)
         with open(filename, 'r') as f:
             for n, line in enumerate(f):
                 words = line.rstrip('\n').split(' ')
@@ -145,20 +145,27 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
 
 if __name__ == "__main__":
 
-    load_model = False
+    examples_options = [2000, 10000, 50000, 200000]
+
     try:
         load_option = sys.argv[1]
         if load_option == '-load_model':
             load_model = True
     except IndexError:
-        pass
+        load_model = False
+
+    try:
+        num_examples = sys.argv[2]
+    except IndexError:
+        num_examples = 2000
+
+    assert num_examples in examples_options
 
     if load_model:
         print('Loading previously trained model')
     else:
         print('Training fresh model')
 
-    num_examples = 5000
     dim = 200
     num_words = 5
     output_dim = 200
@@ -178,7 +185,7 @@ if __name__ == "__main__":
                               hidden_units=[200, 200, output_dim],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
-                              n_epochs=20,
+                              n_epochs=100,
                               batch_size=100,
                               dropout_rate=[0.3, 0.5],
                               load_model=load_model)

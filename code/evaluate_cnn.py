@@ -76,8 +76,7 @@ gensim_model.init_sims(replace=True)  # indicates we're finished training to sav
 makeLowerCase = True
 
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
-word_idx, _ = hf.create_indices_for_vectors(WORD_EMBEDDINGS)
-# TODO: return vectors
+word_idx, word_vectors = hf.create_indices_for_vectors(WORD_EMBEDDINGS, return_vectors=True)
 count = 0
 n_corr = 0
 n_incorr = 0
@@ -141,22 +140,21 @@ with open(TEST_DATA_X, 'r') as f:
                 continue
 
             try:
-                lineNum = word_idx[word]
+                idx_num = word_idx[word]
             except KeyError:
 
                 try:
-                    lineNum = word_idx[lemma]
+                    idx_num = word_idx[lemma]
                 except KeyError:
 
                     try:
-                        lineNum = word_idx[stem]
+                        idx_num = word_idx[stem]
                     except KeyError:
                         # word simply cannot be found in our embeddings file
                         continue
 
-            wordline = hf.get_line(WORD_EMBEDDINGS, lineNum)
-            word_vec = wordline.rstrip('\n').split(' ')[1:]
-            total_example_vec[count] = np.array(word_vec, dtype=np.float32)
+            word_vec = word_vectors[idx_num]
+            total_example_vec[count] = word_vec
             stemmedWords.add(stem)
             count += 1
             if count >= num_words:
