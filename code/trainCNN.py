@@ -5,6 +5,8 @@ import lasagne.layers as LL
 import sys
 from sklearn.preprocessing import normalize
 import helper_fxns as hf
+import theano
+import theano.tensor as T
 
 warnings.filterwarnings("ignore")
 
@@ -56,7 +58,7 @@ def train_conv_net(datasets,
                              nonlinearity=L.nonlinearities.tanh)
     net_output_train = LL.get_output(l_output, deterministic=False)
 
-    if (load_model):
+    if load_model:
         with np.load('../data/model.npz') as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
         LL.set_all_param_values(l_output, param_values)

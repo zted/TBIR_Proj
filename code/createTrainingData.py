@@ -16,13 +16,15 @@ def createTrainingExamples(num_training, num_words, output_dim):
 
     IMAGE_EMBEDDINGS = '../data/visfeat_train_reduced_{}.txt'.format(output_dim)
     image_index, img_vectors = hf.create_indices_for_vectors(IMAGE_EMBEDDINGS,
-                                                             return_vectors=True)
+                                                             return_vectors=True,
+                                                             count_offset=1)
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
     words_we_have = set([])
     with open(WORD_EMBEDDINGS, 'r') as f:
         for n, line in enumerate(f):
-            if n == 0: continue
+            if n == 0:
+                continue
             token = line.split(' ')[0]
             words_we_have.add(token)
 
@@ -62,10 +64,7 @@ def createTrainingExamples(num_training, num_words, output_dim):
 
                 if not word.isalpha():
                     # ignore words that are not purely alphabets, so 76ers, etc
-                    # TODO: see if we should change this to allow alpha numeric
                     continue
-
-                # TODO: remove training examples based on dispersion?
 
                 score = long_string[2 * i + 1]
                 # we may add this information later into the word vector
@@ -74,7 +73,7 @@ def createTrainingExamples(num_training, num_words, output_dim):
                     stem = stemmer.stem(word)
                     lemma = lemmatizer.lemmatize(word)
                     # use lemma to find word easily
-                except UnicodeDecodeError as e:
+                except UnicodeDecodeError:
                     # print('Could not stem or lemmatize ' + word)
                     continue
 
@@ -135,7 +134,7 @@ if __name__ == "__main__":
     try:
         output_dim = int(sys.argv[3])
     except IndexError:
-        output_dim = 400
+        output_dim = 200
 
     assert (num_training in num_train_opt and
             num_words in num_words_opt and

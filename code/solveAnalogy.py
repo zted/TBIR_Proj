@@ -51,7 +51,7 @@ def analogy_solver(qfile, ofile, gensim_model,
             if lowercase:
                 words = [w.lower() for w in words]
             if words[0] == ':':
-                if skipFlag == True:
+                if skipFlag:
                     # we don't log the first results
                     outFile.write(' '.join(words[1:]) + ':\n')
                     skipFlag = False
@@ -74,7 +74,7 @@ def analogy_solver(qfile, ofile, gensim_model,
                 vecA = gensim_model[a]
                 vecB = gensim_model[b]
                 vecC = gensim_model[c]
-            except KeyError as e:
+            except KeyError:
                 # Couldn't retrieved word in analogy question from our embeddings file
                 continue
             hypothesis = analogy_model(vecA, vecB, vecC, bigMatrix, gensim_model, c)

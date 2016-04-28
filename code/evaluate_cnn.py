@@ -6,6 +6,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
 import helper_fxns as hf
 import numpy as np
+import theano
 
 
 def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_words, n_dim):
@@ -76,6 +77,7 @@ makeLowerCase = True
 
 WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
 word_idx, _ = hf.create_indices_for_vectors(WORD_EMBEDDINGS)
+# TODO: return vectors
 count = 0
 n_corr = 0
 n_incorr = 0

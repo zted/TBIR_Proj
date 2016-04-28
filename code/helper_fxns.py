@@ -24,10 +24,12 @@ def create_indices_for_vectors(fn, limit=10000000,
                                return_vectors=False, count_offset=0):
     """
     creates a mapping from the first word on each line to the line number
-    useful for retrieving embeddings later for a given word, instead of
-    having to store it in memory
+    in a file, or if we want list of vectors to be returned, the mapped value
+    corresponds to the nth vector
+    :param count_offset: if returning a vector, need this offset to correctly
+    place array in the position corresponding to the dictionary value of token
+    :param return_vectors: whether or not we want vectors returned
     :param fn: fn to create index from
-    :param skip_header:
     :param limit: the number of words we create indices for
     :return:
     """

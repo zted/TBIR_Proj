@@ -7,6 +7,7 @@ from nltk.stem.snowball import SnowballStemmer
 import helper_fxns as hf
 import numpy as np
 import sys
+import theano
 
 
 def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_words, n_dim):
@@ -90,7 +91,7 @@ def training_examples_to_vec(test_file, num_words, word_dim):
                     stem = stemmer.stem(word)
                     lemma = lemmatizer.lemmatize(word)
                     # use lemma to find word easily
-                except UnicodeDecodeError as e:
+                except UnicodeDecodeError:
                     # print('Could not stem or lemmatize ' + word)
                     continue
 
@@ -177,6 +178,7 @@ if __name__ == "__main__":
 
     WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
     word_idx, _ = hf.create_indices_for_vectors(WORD_EMBEDDINGS)
+    # TODO: return vectors and move this into the function below
     count = 0
 
     vec_x = training_examples_to_vec(TEST_DATA_X, num_words, word_dim)
