@@ -1,8 +1,20 @@
+"""
+This file contains a few commonly used functions
+"""
 from itertools import islice
 import numpy as np
 
 
 def fetch_most_similar(vect, mat, model, ignore_word=None):
+    """
+    uses cosine similarity to find the most similar word
+    :param vect:
+    :param mat:
+    :param model:
+    :param ignore_word: a-b is to c-d, if we want to find d,
+    we should ignore the answer if it is c
+    :return:
+    """
     resultant = np.dot(mat, vect)
     index = np.argmax(resultant)
     word = model.index2word[index]
@@ -53,6 +65,12 @@ def create_indices_for_vectors(fn, limit=10000000, return_vectors=False):
 
 
 def get_line(fn, line_number):
+    """
+    gets the line of a file
+    :param fn:
+    :param line_number:
+    :return:
+    """
     with open(fn, 'r') as f:
         line = list(islice(f, line_number - 1, line_number))[0]
     return line
