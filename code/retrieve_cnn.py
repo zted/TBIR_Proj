@@ -1,16 +1,31 @@
+import sys
+
 import gensim
 import lasagne as L
 import lasagne.layers as LL
+import numpy as np
+import theano
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
+
 import helper_fxns as hf
-import numpy as np
-import sys
-import theano
 
 
 def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_words, n_dim):
+    """
+    initializes CNN by loading weights of a previously trained model. note that the model
+    trained and this model need to have same parameters. see trainCNN.py for explanation of
+    neural network architecture
+    :param model_file:
+    :param hidden_units:
+    :param num_filters:
+    :param filter_hs:
+    :param dropout_rate:
+    :param n_words:
+    :param n_dim:
+    :return:
+    """
     assert len(num_filters) == len(filter_hs)
     filter_shapes = []
     pool_sizes = []
@@ -53,6 +68,13 @@ def init_cnn(model_file, hidden_units, num_filters, filter_hs, dropout_rate, n_w
 
 
 def fetch_top_k(vect, mat, k):
+    """
+    fetch the top k similar parameters as argument indices
+    :param vect: vector for which we want to find other similar vectors for
+    :param mat: matrix containing multiple vectors for us to search over
+    :param k: determines how many results we return
+    :return:
+    """
     resultant = np.dot(mat, vect)
     arglist = np.argsort(resultant)
     arglist = arglist[-1:(-1 - k):-1]
@@ -60,10 +82,19 @@ def fetch_top_k(vect, mat, k):
 
 
 def training_examples_to_vec(test_file, embeddings_file, num_words, word_dim):
+    """
+    similar function to that used to create training examples. see that
+    for full explanation and detailed commented code
+    :param test_file:
+    :param embeddings_file:
+    :param num_words:
+    :param word_dim:
+    :return: input vectors to the CNN
+    """
+    x = []
     ignore_words = stopwords.words('english')
     lemmatizer = WordNetLemmatizer()
     stemmer = SnowballStemmer('english')
-    x = []
     word_idx, word_vectors = hf.create_indices_for_vectors(embeddings_file, return_vectors=True)
     with open(test_file, 'r') as f:
         for line in f:
@@ -72,32 +103,25 @@ def training_examples_to_vec(test_file, embeddings_file, num_words, word_dim):
             total_words = int(len(long_string) / 2)
             total_example_vec = np.empty([num_words, word_dim], dtype=np.float32)
             if total_words - 1 <= num_words:
-                # not enough words, don't bother using this as example
                 continue
             count = 0
 
             for i in range(1, total_words):
                 word = long_string[2 * i].split("'")[0]
-                # take out the apostrophe from words first
 
                 if (word in ignore_words) or (len(word) <= 3):
-                    # ignore the stopwords
                     continue
 
                 if not word.isalpha():
-                    # ignore words that are not purely alphabets, so 76ers, etc
                     continue
 
                 try:
                     stem = stemmer.stem(word)
                     lemma = lemmatizer.lemmatize(word)
-                    # use lemma to find word easily
                 except UnicodeDecodeError:
-                    # print('Could not stem or lemmatize ' + word)
                     continue
 
                 if stem in stemmedWords:
-                    # we've already used a variant of the word in this example
                     continue
 
                 try:
@@ -111,7 +135,6 @@ def training_examples_to_vec(test_file, embeddings_file, num_words, word_dim):
                         try:
                             idx_num = word_idx[stem]
                         except KeyError:
-                            # word simply cannot be found in our embeddings file
                             continue
 
                 word_vec = word_vectors[idx_num]
@@ -119,13 +142,23 @@ def training_examples_to_vec(test_file, embeddings_file, num_words, word_dim):
                 stemmedWords.add(stem)
                 count += 1
                 if count >= num_words:
-                    # we've got enough words, move on to the next example!
                     break
             x.append(total_example_vec)
     return x
 
 
-def predict_with_CNN(x, cnn_output, out_fn, gsm_model):
+def predict_with_CNN(x, cnn_output, num_words, word_dim, out_fn, gsm_model):
+    """
+    predicts the top 100 relevant doc_ids given some input vector
+    :param x: input vectors to the CNN
+    :param cnn_output: function that passes through CNN and outputs
+    hypothesis vector
+    :param num_words: number of words per example
+    :param word_dim: dimension per word embedding
+    :param out_fn: filename to write to
+    :param gsm_model: gensim model
+    :return: None
+    """
     bigMatrix = np.array(gsm_model.syn0[:], dtype=np.float32)
     out_f = open(out_fn, 'w')
     # dividing test data into chunks for evaluation
@@ -136,6 +169,7 @@ def predict_with_CNN(x, cnn_output, out_fn, gsm_model):
     for bn in range(num_batches):
         batches_x.append(x[bn * batch_size:(bn + 1) * batch_size])
 
+    # in case the batch does not evenly divide, last batch for leftovers
     if extra_batch != 0:
         batches_x.append(x[num_batches * batch_size:])
         num_batches += 1
@@ -151,9 +185,11 @@ def predict_with_CNN(x, cnn_output, out_fn, gsm_model):
             for j in arglist:
                 docid = gsm_model.index2word[j]
                 cos_score = resultant[j]
+                # outputs in the format used in trec_eval
                 out_f.write('{} 0  {}  0 {} 0\n'.format(query_id, docid, cos_score))
         print('Next batch')
     out_f.close()
+    return
 
 
 if __name__ == "__main__":
@@ -164,29 +200,26 @@ if __name__ == "__main__":
     except IndexError:
         CNN_MODEL = '../data/golden_model.npz'
 
-    word_dim = 200
-    num_words = 5
-    output_dim = 200
+    WORD_DIM = 200
+    NUM_WORDS = 5
+    OUTPUT_DIM = 200
 
-    TEST_DATA_X = '../data/test_data_students_mini.txt'
-    TEST_DATA_Y = '../data/visfeat_test_reduced_{}.txt'.format(output_dim)
+    TEST_DATA_Y = '../data/visfeat_test_reduced_{}.txt'.format(OUTPUT_DIM)
 
-    outFile = '../results/rank_predictions.txt'
-    gensim_model = gensim.models.Word2Vec.load_word2vec_format(TEST_DATA_Y, binary=False)
-    gensim_model.init_sims(replace=True)  # indicates we're finished training to save ram
-    makeLowerCase = True
+    OUTFILE = '../results/rank_predictions.txt'
+    GENSIM_MODEL = gensim.models.Word2Vec.load_word2vec_format(TEST_DATA_Y, binary=False)
+    GENSIM_MODEL.init_sims(replace=True)  # indicates we're finished training to save ram
 
-    WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(word_dim)
-    count = 0
+    WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(WORD_DIM)
 
-    vec_x = training_examples_to_vec(TEST_DATA_X, WORD_EMBEDDINGS, num_words, word_dim)
+    VEC_X = training_examples_to_vec(TEST_DATA_X, WORD_EMBEDDINGS, NUM_WORDS, WORD_DIM)
 
-    CNN_output = init_cnn(CNN_MODEL,
-                          hidden_units=[200, 200, output_dim],
+    CNN_OUTPUT = init_cnn(CNN_MODEL,
+                          hidden_units=[200, 200, OUTPUT_DIM],
                           num_filters=[32, 32, 32],
                           filter_hs=[2, 3, 4],
                           dropout_rate=[0.3, 0.5],
-                          n_words=num_words,
-                          n_dim=word_dim)
+                          n_words=NUM_WORDS,
+                          n_dim=WORD_DIM)
 
-    predict_with_CNN(vec_x, CNN_output, outFile, gensim_model)
+    predict_with_CNN(VEC_X, CNN_OUTPUT, NUM_WORDS, WORD_DIM, OUTFILE, GENSIM_MODEL)
