@@ -1,3 +1,9 @@
+"""
+The architecture was inspired by and adapted from Yoon
+Kim's use of CNN for sentence classification.
+  Code https://github.com/yoonkim/CNN_sentence
+  and paper http://arxiv.org/abs/1408.5882
+"""
 import numpy as np
 import warnings
 import lasagne as L
@@ -19,8 +25,10 @@ def train_conv_net(datasets,
                    n_epochs=25,
                    batch_size=50,
                    load_model=False):
+
     x_train, y_train, x_val, y_val = datasets
 
+    # creating filter and pool sizes
     assert len(num_filters) == len(filter_hs)
     img_w = len(x_train[0][0][0])
     img_h = len(x_train[0][0])
@@ -34,8 +42,10 @@ def train_conv_net(datasets,
     l_in = LL.InputLayer(
         shape=(None, input_shape[0], input_shape[1], input_shape[2]))
 
+    # making convolution and pooling layers
     layer_list = []
     for i in range(len(filter_hs)):
+        # by using a for loop it will have as many convolutions as there are filters
         l_conv = LL.Conv2DLayer(l_in, num_filters=num_filters[i], filter_size=filter_shapes[i],
                                 nonlinearity=L.nonlinearities.rectify,
                                 W=L.init.HeNormal(gain='relu'))
@@ -44,6 +54,7 @@ def train_conv_net(datasets,
 
     mergedLayer = LL.ConcatLayer(layer_list)
 
+    # hidden and dropout layers
     l_hidden1 = LL.DenseLayer(mergedLayer, num_units=hidden_units[0],
                               nonlinearity=L.nonlinearities.tanh,
                               W=L.init.HeNormal(gain='relu'))
@@ -56,12 +67,15 @@ def train_conv_net(datasets,
 
     l_output = LL.DenseLayer(l_hidden2_dropout, num_units=hidden_units[2],
                              nonlinearity=L.nonlinearities.tanh)
-    net_output_train = LL.get_output(l_output, deterministic=False)
 
     if load_model:
+        # if option is selected, load previously trained model
         with np.load('../data/model.npz') as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
         LL.set_all_param_values(l_output, param_values)
+
+    # output layers, for training we use stochastic determination of dropout
+    net_output_train = LL.get_output(l_output, deterministic=False)
 
     true_output = T.matrix('true_output', dtype='float32')
 
@@ -96,9 +110,6 @@ def train_conv_net(datasets,
             # Compute the network's output on the validation data
             val_output = net_output_val(x_val)
             train_output = net_output_val(current_x_train)
-            # print(val_output[0])
-            # print(y_val[0])
-            # The accuracy is the average number of correct predictions
             val_error = np.mean(L.objectives.squared_error(val_output, y_val)) * len(y_val[0])
             train_error = np.mean(L.objectives.squared_error(train_output, current_y_train)) * len(y_val[0])
             print("Epoch {} validation errors: {} training errors: {}".format(epoch, val_error, train_error))
@@ -110,6 +121,18 @@ def train_conv_net(datasets,
 
 
 def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
+    """
+    loads data, converts the words in xfile to vectors by looking up
+    its corresponding embeddings file
+    :param xfile: file containing words and word embeddings
+    :param yfile: file containing visual feature representations
+    :param n: number of training examples
+    :param d: dimension of each word embedding
+    :param w: number of words per example
+    :param output_d: dimension of output, or visual feature embedding dimension
+    :param valPercent: percentage of training set used for validation
+    :return: training and validation data shuffled
+    """
     def load_labels(filename, n_examples, dim):
         data = np.fromfile(filename, dtype=np.float32, count=-1, sep=' ')
         return data.reshape(n_examples, dim)
@@ -124,12 +147,14 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
                     newVec[n][0][m] = word_vectors[word_idx[w]]
         return newVec
 
-    WORD_EMBEDDINGS = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
-    x_all = load_vectors(xfile, WORD_EMBEDDINGS, n, w, d)
+    word_embeddings = '../data/glove.6B/glove.6B.{0}d.txt'.format(d)
+    x_all = load_vectors(xfile, word_embeddings, n, w, d)
     y_all = normalize(load_labels(yfile, n, output_d))
 
     np.random.seed(3453)
     randPermute = np.random.permutation(n)
+    # gives us a random permutation of the data so that we get different
+    # validation and training data in different batches each time
     x_all = np.array([x_all[i] for i in randPermute])
     y_all = np.array([y_all[i] for i in randPermute])
     n_val = int(valPercent * n)
@@ -144,9 +169,11 @@ def load_my_data(xfile, yfile, n, d, w, output_d, valPercent):
 
 
 if __name__ == "__main__":
-
-    examples_options = [2000, 10000, 50000, 200000]
+    # select number of examples to train on
+    examples_options = [2000, 10000, 50000, 200000, 300000]
     load_model = False
+
+    # load previously trained model or train new one
     try:
         load_option = sys.argv[1]
         if load_option == '-load_model':
@@ -166,26 +193,30 @@ if __name__ == "__main__":
     else:
         print('Training fresh model')
 
-    dim = 200
-    num_words = 5
-    output_dim = 200
 
-    training_file = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, num_words)
-    truths_file = '../data/{0}n_{1}w_{2}d_training_gt.txt'.format(num_examples, num_words, output_dim)
+    WORD_DIM = 200
+    # dimension of each word embedding
+    NUM_WORDS = 5
+    # number of words per training example
+    OUTPUT_DIM = 200
+
+    TRAINING_FILE = '../data/{0}n_{1}w_training_x.txt'.format(num_examples, NUM_WORDS)
+    TRUTHS_FILE = '../data/{0}n_{1}w_{2}d_training_gt.txt'.format(num_examples, NUM_WORDS, OUTPUT_DIM)
 
     print "loading data...",
-    datasets = load_my_data(training_file, truths_file, n=num_examples, d=dim,
-                            w=num_words, output_d=output_dim, valPercent=0.2)
+    datasets = load_my_data(TRAINING_FILE, TRUTHS_FILE, n=num_examples, d=WORD_DIM,
+                            w=NUM_WORDS, output_d=OUTPUT_DIM, valPercent=0.2)
     print "data loaded!"
 
     results = []
-    r = range(0, 10)
+    r = range(0, 1)
     for i in r:
+        # note that the last hidden layer must have same dimension as the output
         perf = train_conv_net(datasets,
-                              hidden_units=[200, 200, output_dim],
+                              hidden_units=[200, 200, OUTPUT_DIM],
                               num_filters=[32, 32, 32],
                               filter_hs=[2, 3, 4],
-                              n_epochs=100,
+                              n_epochs=50,
                               batch_size=100,
                               dropout_rate=[0.3, 0.5],
                               load_model=load_model)
