@@ -41,3 +41,4 @@ helper_fxns: contains commonly used functions
 retrieve_cnn: outputs rankings based on queries
 solveAnalogy: solves word analogies using word embedding based on different models
 trainCNN: trains the convolution neural network
+PCA.m: finds k principal components from the original 4096 dimensioned visual feature vectors
