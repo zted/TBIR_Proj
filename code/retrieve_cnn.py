@@ -187,7 +187,6 @@ def predict_with_CNN(x, cnn_output, num_words, word_dim, out_fn, gsm_model):
                 cos_score = resultant[j]
                 # outputs in the format used in trec_eval
                 out_f.write('{} 0  {}  0 {} 0\n'.format(query_id, docid, cos_score))
-        print('Next batch')
     out_f.close()
     return
 
